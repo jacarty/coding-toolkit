@@ -87,6 +87,6 @@ Keep it scannable. Lead with the most important information.
 
 When `docs/process.md` calls for this skill before a PR:
 1. Look at the whole change: `.github/scripts/review-diff.sh` (`--stat` for a summary). It covers commits on the branch, staged and unstaged edits, and untracked files.
-2. Check `AGENTS.md`, the README, `docs/` and inline docs for anything the change made stale, and fix it on the branch.
+2. Check `AGENTS.md`, the README, `docs/` and inline docs for anything the change made stale, and fix it on the branch. In this template the README is a short overview and `docs/toolkit.md` is the full reference: detail goes in the reference, and the README changes only when the overview or quick start does.
 3. Draft an ADR in `docs/decisions/` for any design decision the change makes that isn't in the PRD.
 4. Fix drift and inaccuracy only. Don't restyle docs the change didn't affect.
