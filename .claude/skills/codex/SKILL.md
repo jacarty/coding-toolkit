@@ -50,7 +50,7 @@ Long reviews: `run_in_background: true` with a generous timeout (diff reviews ta
 ### 1. Plain diff review (native reviewer)
 
 ```bash
-(cd "$TREE" && codex exec review "${RO[@]}" --base main    -o "$OUT" > "$LOG" 2>&1)   # branch vs main
+(cd "$TREE" && codex exec review "${RO[@]}" --base main    -o "$OUT" > "$LOG" 2>&1)   # committed branch vs main (use your default branch)
 (cd "$TREE" && codex exec review "${RO[@]}" --commit <sha> -o "$OUT" > "$LOG" 2>&1)   # one commit
 ```
 
@@ -58,12 +58,12 @@ These presets **cannot take a custom prompt** (`--base`/`--commit` conflict with
 
 ### 2. Focused review or second opinion (`codex exec`)
 
-For uncommitted work, write the diff first (`git diff HEAD > "$DIFF"`, plus `git diff --no-index /dev/null <file> >> "$DIFF" || true` for each untracked file) and check it for secrets and private identifiers (Hard rules). Pass the prompt on stdin, with the instructions from a quoted heredoc so nothing in them expands:
+For uncommitted work, or the whole change before a PR, write the diff first with `.github/scripts/review-diff.sh > "$DIFF"`: committed, staged, unstaged and untracked changes against the default branch, the same scope the other review gates use. Check it for secrets and private identifiers (Hard rules). Pass the prompt on stdin, with the instructions from a quoted heredoc so nothing in them expands:
 
 ```bash
 (cd "$TREE" && { cat <<'EOF'; [ ! -f "$DIFF" ] || cat "$DIFF"; } | codex exec "${RO[@]}" -o "$OUT" - > "$LOG" 2>&1)
 <task: what to review or answer, and why>
-<scope: the diff below, `git diff main...HEAD`, specific files, or a question>
+<scope: the diff below, specific files, or a question>
 <focus: e.g. auth, data leakage, IAM, CI permissions>
 Do not modify any files.
 Output: findings ranked most severe first, each with file:line, severity

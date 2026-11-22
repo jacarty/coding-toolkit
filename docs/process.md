@@ -63,6 +63,8 @@ These steps prevent the most common friction: unrelated files in commits, unused
 
 **Critical**: these agents run **before** the PR is created, not in parallel with it. Findings fold into the in-progress branch (new commits, amend, or rebase) so the PR opens in its final state. Reviewers should see one coherent diff, not "feature commits then fix-up commits".
 
+**Review scope**: every gate reviews the same thing: the whole change against the default branch, committed or not. `.github/scripts/review-diff.sh` prints it (`--stat` for a summary), covering commits on the branch, staged and unstaged edits, and untracked files. `code-reviewer`, `devops-reviewer`, the `antigravity` and `codex` skills and `doc-generator` all use it. That way a two-commit fold, or a new file that isn't staged yet, can't fall outside a review.
+
 **Fold timing** — two legitimate shapes:
 
 - **One-atomic-fold** — keep the working tree uncommitted while the gates run, then commit feature + gate findings as a single commit. Cleanest review experience. Preferred for larger PRs.
@@ -117,7 +119,7 @@ If a PR is **all** of the following:
 
 ## Parallel execution
 
-When multiple pre-PR gates apply, **spawn the agents in parallel**, not sequentially. `code-reviewer` + `devops-reviewer` + `test-generator` + `antigravity` (in the background) typically finish much faster in parallel. Run the `doc-generator` skill once their findings are folded in, so the docs describe the final code. At phase boundaries — `codebase-review` runs as a subagent while `doc-generator` runs in the main session.
+When multiple pre-PR gates apply, **spawn the agents in parallel**, not sequentially. `code-reviewer` + `devops-reviewer` + `test-generator` + `antigravity` (in the background) typically finish much faster in parallel. The reviewers are read-only and report findings; only `test-generator` writes files (new tests). So wait for it to finish before committing, and fold everyone's findings in from the main session. Run the `doc-generator` skill once their findings are folded in, so the docs describe the final code. At phase boundaries — `codebase-review` runs as a subagent while `doc-generator` runs in the main session.
 
 ## When an agent or gate flags something
 

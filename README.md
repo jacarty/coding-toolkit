@@ -78,7 +78,7 @@ Five custom agents that Claude Code delegates to based on context. They can also
 | `code-reviewer` | Opus | Reviews code for style, complexity, anti-patterns, naming, and architectural smells. Read-only. |
 | `codebase-review` | Sonnet | Scans a repo and produces a structured briefing covering tech stack, architecture, posture assessment, and recommendations. Read-only. |
 | `test-generator` | Sonnet | Generates unit tests, suggests edge cases, and reviews existing tests for quality and coverage gaps. |
-| `devops-reviewer` | Sonnet | Reviews GitHub Actions workflows, Dockerfiles, Kubernetes manifests, and Terraform/CloudFormation templates. |
+| `devops-reviewer` | Sonnet | Reviews GitHub Actions workflows, Dockerfiles, Kubernetes manifests, Terraform/CloudFormation templates, git hooks and tooling configuration. Read-only: it reports, and the main session applies fixes. |
 | `phase-acceptance` | Opus | Validates that a build-guide phase is complete before the PR opens. Checks code against every PRD requirement and verification checkpoint. |
 
 All agents have `memory: project` set, so they accumulate knowledge about this codebase's patterns across sessions.
@@ -87,8 +87,8 @@ All agents have `memory: project` set, so they accumulate knowledge about this c
 
 | Command | Description |
 |---|---|
-| `/create_worktree <branch-name>` | Creates a new git worktree in `.trees/<branch-name>`, symlinks `.venv` if present, and opens it in VS Code if available. |
-| `/merge_worktree <branch-name>` | Merges a worktree branch back into the current branch, with automatic conflict resolution. |
+| `/create_worktree <type/slug>` | Creates a git worktree for the branch in `.trees/<type-slug>`. It checks the name, branches from the default branch, and opens it in VS Code if available. Dependencies are installed per worktree, not shared |
+| `/merge_worktree <type/slug>` | Finishes a worktree's branch through a PR, never a local merge into `main`. It brings the branch up to date with the default branch, runs the checks and opens the PR. After the merge, it removes the worktree and the branch |
 
 ### Development process (`docs/process.md`)
 
@@ -139,6 +139,7 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 | `scripts/test_check_toolkit.py` | Unit tests for the checker, also run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
 | `dependabot.yml` | Weekly PRs to bump the SHA-pinned GitHub Actions. Add your project's own package ecosystems here |
 | `rulesets/main-protection.json` | Protection for the default branch, kept as code. Changes only through PRs; merge commits or squash; no force-pushes or deletion; `toolkit-checks` must pass. Repo admins can bypass on a PR, never by pushing directly |
+| `scripts/review-diff.sh` | Prints the whole change against the default branch (committed, staged, unstaged and untracked); `--stat` for a summary. Every review gate uses it, so they all review the same thing |
 | `scripts/init-from-template.sh` | First-run setup for a new repo: fills in placeholders and installs the git hooks. Previews by default and is safe to re-run. It edits only tracked files, and refuses to apply unless `gh` confirms the repo isn't the template itself (or you pass `--skip-template-check`) |
 | `scripts/apply-repo-defaults.sh` | Applies the rulesets and the repo settings a template doesn't copy (below) |
 
