@@ -103,17 +103,27 @@ A codified development process that defines when each agent runs automatically d
 
 The process doc also covers branch/PR cadence, issue tracking conventions, fold timing for gate findings, and how to handle agent feedback.
 
-### Git hooks (`.githooks/`)
+### Git hooks (`.githooks/`, `.pre-commit-config.yaml`)
 
-Local git hooks that run automatically. No external dependencies required.
+Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup script does this for you. Requires the [pre-commit](https://pre-commit.com) tool: `uv tool install pre-commit`, `pipx install pre-commit` or `brew install pre-commit`.
 
-| Hook | Trigger | What it does |
+| Hook | Runs | What it does |
 |---|---|---|
-| `pre-commit` | Before each commit | Scans staged files for secrets (AWS keys, API tokens, private keys, passwords, connection strings) and blocks files over 5MB |
-| `commit-msg` | After writing commit message | Validates Conventional Commits format (`type(scope): description`) |
-| `pre-push` | Before each push | Validates branch naming follows `type/description` pattern |
+| `pre-commit` | Before each commit | Runs the [pre-commit](https://pre-commit.com) framework with `.pre-commit-config.yaml`: [gitleaks](https://github.com/gitleaks/gitleaks) for secrets (output redacted), plus private keys, files over 5MB (new or grown) and merge-conflict markers. Unstaged changes are stashed while it runs, so it checks exactly what's being committed |
+| `commit-msg` | After writing the commit message | Validates the Conventional Commits format (`type(scope): description`). The description can start with a lowercase letter, a digit or an acronym |
+| `pre-push` | Before each push | Checks every branch being pushed, not just the checked-out one. Blocks pushing straight to the default branch, and checks `type/slug` names (short slugs like `fix/ci` are fine) |
 
-All hooks can be bypassed with `--no-verify` when needed.
+**Scanners:** gitleaks and pre-commit-hooks are maintained tools, pinned to release commit SHAs under the 7-day rule. Update them with `pre-commit autoupdate --freeze`, then check each new release's date.
+
+**False positives:** for a deliberate example in code, add a `gitleaks:allow` comment on that line. For a whole file or finding, use `.gitleaksignore`.
+
+**Scanning the whole repo:** the gitleaks hook only looks at what's staged, even with `pre-commit run --all-files`. Install gitleaks itself (`brew install gitleaks`), then run `gitleaks dir .` for the current files or `gitleaks git .` for the full history.
+
+**Skipping:** any hook can be skipped with `--no-verify`.
+
+**What GitHub enforces:** push protection blocks known secret formats, and the `main-protection` ruleset requires a PR and a passing `toolkit-checks` to change the default branch. Branch names, commit messages, file sizes and conflict markers are checked only locally.
+
+**Tests:** `.github/scripts/test_githooks.py` runs in CI. It installs the hooks with `setup-hooks.sh`, using a stub `pre-commit`, then makes real commits and pushes to a bare remote. It also covers removing the worktree that installed the hooks.
 
 ### GitHub templates (`.github/`)
 
@@ -151,7 +161,7 @@ Apply the ruleset once the default branch's CI has reported `toolkit-checks` at 
 - Every status check a ruleset requires is a real workflow job. A renamed job would otherwise block every merge.
 - Skill and agent names match their folders, and every description fits the skill listing.
 - Relative links and images between docs resolve (code blocks and HTML comments are skipped).
-- ShellCheck passes on the hook scripts and `.github/scripts/*.sh`.
+- ShellCheck passes on every shell script (picked by its shebang) in `.claude/hooks/`, `.githooks/` and `.github/scripts/`.
 
 Each check runs even when an earlier one fails, and errors are annotated on the line in the PR diff.
 
@@ -257,7 +267,7 @@ This replaces a Haiku `linter` subagent: deterministic tooling does the same job
 
 1. Click **Use this template** on GitHub to create a new repository
 2. Clone your new repo
-3. Run the first-run setup: `.github/scripts/init-from-template.sh` to preview, then `--apply`. It fills in the project name (AGENTS.md and the doc templates), the CODEOWNERS owner and the LICENSE holder, and installs the git hooks. The defaults come from `gh` and `git config`; override them with `--name`, `--owner` and `--author`.
+3. Install [pre-commit](https://pre-commit.com) if you don't have it (`uv tool install pre-commit` or `brew install pre-commit`), then run the first-run setup: `.github/scripts/init-from-template.sh` to preview, then `--apply`. It fills in the project name (AGENTS.md and the doc templates), the CODEOWNERS owner and the LICENSE holder, and installs the git hooks. The defaults come from `gh` and `git config`; override them with `--name`, `--owner` and `--author`.
 4. Review the changes with `git diff`, then commit them on a branch and open a PR
 5. Once CI has reported `toolkit-checks`, protect `main` and set the repo defaults: `.github/scripts/apply-repo-defaults.sh` to preview, then `--apply` (see Repo defaults above)
 6. Fill in `AGENTS.md` with your project's architecture and conventions (look for `[...]` and `<!-- ... -->` placeholders)

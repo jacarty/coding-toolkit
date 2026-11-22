@@ -61,14 +61,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'
 
-      # ShellCheck comes with GitHub's Ubuntu runner image (0.11 on 26.04). The file list
-      # tolerates a project that has removed either hooks folder.
+      # ShellCheck comes with GitHub's Ubuntu runner image (0.11 on 26.04).
+      # Scripts are picked by their shebang, so Python and other files in
+      # these folders aren't passed to it.
       - name: ShellCheck scripts
         if: ${{ !cancelled() }}
         run: |
-          # `|| true`: find exits 1 for a missing folder, and run steps use pipefail.
-          # .github/scripts holds Python too, so only *.sh there.
-          {
-            find .claude/hooks .githooks -type f \( -name '*.sh' -o -perm -u+x \) -print0 2>/dev/null || true
-            find .github/scripts -type f -name '*.sh' -print0 2>/dev/null || true
-          } | xargs -0 -r shellcheck
+          files=()
+          while IFS= read -r -d '' f; do
+            first=""
+            IFS= read -r first < "$f" || true
+            if [[ $first =~ ^\#!.*[/[:space:]](ba)?sh([[:space:]]|$) ]]; then files+=("$f"); fi
+          done < <(find .claude/hooks .githooks .github/scripts -type f -print0 2>/dev/null || true)
+          printf 'ShellCheck: %s\n' "${files[@]}"
+          if [ ${#files[@]} -gt 0 ]; then shellcheck "${files[@]}"; fi

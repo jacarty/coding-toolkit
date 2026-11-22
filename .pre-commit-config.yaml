@@ -1,0 +1,33 @@
+# Commit-time checks, run by the pre-commit framework (https://pre-commit.com).
+# Install once per clone with .githooks/setup-hooks.sh, which also links the
+# repo's own commit-msg and pre-push hooks (.githooks/).
+#
+# pre-commit stashes unstaged changes while these run, so they check exactly
+# what's being committed. They're a local first line that --no-verify skips;
+# GitHub push protection and the main-protection ruleset are the backstop.
+#
+# Versions follow AGENTS.md: current releases at least 7 days old, pinned to
+# the release's commit SHA (a tag can be moved). To update, run
+# `pre-commit autoupdate --freeze`, then check each new release's date.
+minimum_pre_commit_version: '4.6.0'
+default_install_hook_types: [pre-commit]
+
+repos:
+  # Secrets: gitleaks' maintained ruleset. --redact keeps values out of the output.
+  # Allowlist a deliberate example with a `gitleaks:allow` comment on its line,
+  # or a .gitleaksignore / .gitleaks.toml (https://github.com/gitleaks/gitleaks).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1 (2026-03-21)
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0 (2025-08-09)
+    hooks:
+      - id: detect-private-key
+      # --enforce-all: also catch an existing file that grows past the limit.
+      - id: check-added-large-files
+        args: ['--maxkb=5120', '--enforce-all']
+      # --assume-in-merge: catch conflict markers outside a merge too.
+      - id: check-merge-conflict
+        args: ['--assume-in-merge']

@@ -13,10 +13,12 @@
 #
 # It edits only files git tracks (never symlinks or untracked files), so
 # `git diff` shows every change and `git checkout -- <file>` undoes it. It
-# also sets core.hooksPath. It refuses to apply in the template itself: gh
+# also installs the git hooks (setup-hooks.sh, which needs the pre-commit tool).
+# It refuses to apply in the template itself: gh
 # must confirm the repo isn't a template, or you pass --skip-template-check.
 #
-# Needs: git and python3; gh for the defaults and the template check.
+# Needs: git and python3; gh for the defaults and the template check;
+# pre-commit (https://pre-commit.com) for the hooks.
 
 set -euo pipefail
 
@@ -153,11 +155,15 @@ fi
 echo
 
 echo "Git hooks:"
-if [ "$(git config core.hooksPath || true)" = .githooks ]; then
+HOOKS_DIR=$(git rev-parse --git-common-dir)/hooks
+if [ -z "$(git config --get core.hooksPath || true)" ] \
+    && grep -q "Installed by .githooks/setup-hooks.sh" "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/pre-push" 2>/dev/null \
+    && [ -x "$HOOKS_DIR/commit-msg" ] && [ -x "$HOOKS_DIR/pre-push" ] \
+    && grep -q pre-commit "$HOOKS_DIR/pre-commit" 2>/dev/null; then
     echo "  ✓ installed"
 elif [ "$APPLY" = 1 ]; then
     if sh .githooks/setup-hooks.sh >/dev/null; then
-        echo "  ✓ installed (core.hooksPath = .githooks)"
+        echo "  ✓ installed (pre-commit framework, plus commit-msg and pre-push)"
     else
         echo "  ! not installed: run .githooks/setup-hooks.sh to see why"
         [ "$status" != 0 ] || status=4
