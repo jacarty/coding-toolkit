@@ -136,7 +136,7 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 | `ISSUE_TEMPLATE/feature_request.yml` | Structured feature request form |
 | `workflows/toolkit-checks.yml` | CI on every PR and push to `main`, running the checks below. Keep it in projects you create from the template, and add your own build and test workflow next to it |
 | `scripts/check_toolkit.py` | The checks the workflow runs, standard library only; CI runs it on Python 3.14. Run locally with `python3 -I .github/scripts/check_toolkit.py` |
-| `scripts/test_check_toolkit.py` | Unit tests for the checker, also run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
+| `scripts/test_*.py` | Tests for the checker, the git hooks, `review-diff.sh` and the lint hook, run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
 | `dependabot.yml` | Weekly PRs to bump the SHA-pinned GitHub Actions. Add your project's own package ecosystems here |
 | `rulesets/main-protection.json` | Protection for the default branch, kept as code. Changes only through PRs; merge commits or squash; no force-pushes or deletion; `toolkit-checks` must pass. Repo admins can bypass on a PR, never by pushing directly |
 | `scripts/review-diff.sh` | Prints the whole change against the default branch (committed, staged, unstaged and untracked); `--stat` for a summary. Every review gate uses it, so they all review the same thing |
@@ -236,10 +236,10 @@ Check what loaded with `/status`; `claude doctor` lists any entry Claude Code re
 |---|---|---|
 | `lint-edited-file.sh` | After every `Edit`/`Write`/`MultiEdit` (PostToolUse) | Formats and lints the edited file with the project's own tools, then sends only the leftovers back to Claude. |
 
-How it chooses tools:
+How it chooses tools: it searches from the edited file's folder up to the repo root, so a repo split into `frontend/` and `backend/`, or a monorepo with packages, works. Each file uses its own package's tools and config, or the root's if that's where they live, and each tool runs from the nearest project folder.
 
-- **Python:** ruff, from the project's `.venv`, or from your PATH when the project configures ruff (`ruff.toml` or `[tool.ruff]`).
-- **JS/TS:** biome when `biome.json` exists. Otherwise prettier and eslint, each only when configured. All of them come from `node_modules/.bin`.
+- **Python:** ruff, from the nearest `.venv`, or from your PATH when the project configures ruff (`ruff.toml` or `[tool.ruff]`).
+- **JS/TS:** biome when `biome.json` exists. Otherwise prettier and eslint, each only when configured. All of them come from the nearest `node_modules/.bin` that has them.
 - **Others:** gofmt, rustfmt, terraform fmt and shellcheck, when installed.
 
 What to know:
@@ -257,6 +257,7 @@ This replaces a Haiku `linter` subagent: deterministic tooling does the same job
 | `.claude/settings.json` | Claude Code tool permissions and hooks — pre-approves common dev commands, denies reading secrets, and wires up the lint hook. Strict JSON |
 | `.claude/settings.example.jsonc` | Commented reference copy of the settings, with the optional entries. Not loaded by Claude Code |
 | `.editorconfig` | Enforces consistent formatting across editors — indent style, line endings, trailing whitespace |
+| `.gitattributes` | Keeps shell scripts, git hooks, Python and YAML on LF line endings in every checkout, so a Windows `core.autocrlf` can't break them (`#!/bin/sh\r`) |
 | `.gitignore` | Comprehensive ignore rules covering Python, Node.js, IDE files, secrets, build outputs, and OS-generated files |
 | `AGENTS.md` | Project context skeleton, read by Claude Code, Codex and Antigravity — fill in your architecture, conventions, and patterns |
 | `CLAUDE.md` | One line, `@AGENTS.md`, so Claude Code loads the shared instructions. Don't add content here |
