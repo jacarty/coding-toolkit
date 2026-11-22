@@ -47,14 +47,12 @@ Always use `run_in_background: true` with a generous timeout. A 900-line diff to
 
 ## 1. Code review
 
-Write the diff first:
+Write the diff first. For a pre-PR review, use the whole change against the default branch: commits on the branch, staged and unstaged edits, and untracked files. That's what the other review gates see too:
 
 ```bash
-git diff main...HEAD > "$DIFF"        # branch vs main
-git diff HEAD > "$DIFF"               # uncommitted, tracked files; add untracked ones with
-                                      #   git diff --no-index /dev/null <file> >> "$DIFF" || true
-                                      #   (it exits 1 whenever there's a difference)
-git show <sha> > "$DIFF"              # one commit
+.github/scripts/review-diff.sh > "$DIFF"   # the whole change (the pre-PR gate)
+git show <sha> > "$DIFF"                   # one commit
+git diff --cached > "$DIFF"                # only what's staged
 ```
 
 Check the diff for secrets and private identifiers (Hard rules), then build the prompt: the instructions from a quoted heredoc, so nothing in them expands, with the diff appended after them:
@@ -76,7 +74,7 @@ $(cat "$DIFF")"
 (cd "$TREE" && agy -p "$PROMPT" "${AGY[@]}" > "$OUT" 2> "$LOG")
 ```
 
-The prompt must come straight after `-p`. `agy` doesn't read a prompt from stdin (`-p -` is taken as an empty task), so it travels as one argument, and Linux caps one argument at 128 KB. If `wc -c "$DIFF"` is over about 120 KB, split the diff by file group (`git diff main...HEAD -- src/ tests/`, then the rest) and run one review per part.
+The prompt must come straight after `-p`. `agy` doesn't read a prompt from stdin (`-p -` is taken as an empty task), so it travels as one argument, and Linux caps one argument at 128 KB. If `wc -c "$DIFF"` is over about 120 KB, split it by file group: `review-diff.sh --stat` shows the groups, then run one review per part with `.github/scripts/review-diff.sh -- src/ tests/` and so on. Path filters keep the full scope, untracked files included.
 
 Good generic focus lines (add project-specific ones from the triggers in `docs/process.md`):
 - Auth, IAM, permissions: "Is every role or permission the minimum, scoped to one resource? Is there any path that skips the auth check?"

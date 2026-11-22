@@ -1,72 +1,51 @@
 #!/bin/sh
 #
-# Commit-msg hook: Conventional Commits validation
-# Validates that commit messages follow the Conventional Commits specification.
+# Commit-msg hook: Conventional Commits validation.
 # https://www.conventionalcommits.org/
 #
-# Install: cp .githooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
-# Or set hooks path: git config core.hooksPath .githooks
+#   <type>(<optional scope>)<optional !>: <description>
+#
+# The description starts with a lowercase letter, a digit, or an acronym
+# (`fix: 404 handling`, `feat: OAuth login`) and doesn't end with a period.
+# A subject over 72 characters is a warning, not an error.
+#
+# Install with .githooks/setup-hooks.sh. Skip with --no-verify.
 
-# Colours for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+set -eu
 
 COMMIT_MSG_FILE=$1
-COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
+# The subject is the first line that isn't blank or a git comment, as git
+# itself strips those.
+SUBJECT=$(tr -d '\r' < "$COMMIT_MSG_FILE" | grep -vE '^(#|[[:space:]]*$)' | head -n 1 || true)
 
-# Skip merge commits, revert commits, and amend commits
-if echo "$COMMIT_MSG" | grep -qE '^(Merge|Revert|fixup!|squash!) '; then
-    exit 0
-fi
+# Leave merges, reverts and autosquash commits to git.
+case "$SUBJECT" in
+    "Merge "*|"Revert "*|"fixup! "*|"squash! "*|"amend! "*|"") exit 0 ;;
+esac
 
-# Skip if commit message is empty (git will handle this)
-if [ -z "$COMMIT_MSG" ]; then
-    exit 0
-fi
-
-# Valid Conventional Commit types
 VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+PATTERN="^($VALID_TYPES)(\([a-z0-9._-]+\))?!?: ([a-z0-9]|[A-Z][A-Z0-9])(.*[^.])?$"
 
-# Pattern: type(optional-scope)optional-!: description
-# - type must be lowercase
-# - scope is optional, in parentheses
-# - ! before : indicates breaking change
-# - description must start with lowercase and not end with a period
-PATTERN="^($VALID_TYPES)(\([a-z0-9._-]+\))?!?: [a-z].*[^.]$"
-
-if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
-    echo "" >&2
-    echo "${RED}✗ Invalid commit message format${NC}" >&2
-    echo "" >&2
-    echo "  Your message:  ${YELLOW}${COMMIT_MSG}${NC}" >&2
-    echo "" >&2
-    echo "  Expected format: ${GREEN}<type>(<scope>): <description>${NC}" >&2
-    echo "" >&2
-    echo "  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert" >&2
-    echo "" >&2
-    echo "  Rules:" >&2
-    echo "    - Type must be lowercase" >&2
-    echo "    - Description must start with lowercase" >&2
-    echo "    - Description must not end with a period" >&2
-    echo "    - Add ! before : for breaking changes" >&2
-    echo "" >&2
-    echo "  Examples:" >&2
-    echo "    ${GREEN}feat(auth): add OAuth2 login${NC}" >&2
-    echo "    ${GREEN}fix: handle null response from API${NC}" >&2
-    echo "    ${GREEN}docs(readme): add deployment instructions${NC}" >&2
-    echo "    ${GREEN}feat(api)!: change response format${NC}" >&2
-    echo "" >&2
-    echo "  Skip this check with: git commit --no-verify" >&2
+if ! printf '%s\n' "$SUBJECT" | grep -qE "$PATTERN"; then
+    {
+        printf '\n✗ Invalid commit message format\n\n'
+        printf '  Your message:    %s\n' "$SUBJECT"
+        printf '  Expected format: <type>(<scope>): <description>\n\n'
+        printf '  Types: %s\n' "$(printf '%s' "$VALID_TYPES" | sed 's/|/, /g')"
+        printf '  The description starts with a lowercase letter, digit or acronym,\n'
+        printf "  and doesn't end with a period. Add ! before : for a breaking change.\n\n"
+        printf '  Examples:\n'
+        printf '    feat(auth): add OAuth2 login\n'
+        printf '    fix: 404 on a missing user\n'
+        printf '    feat(api)!: change the response format\n\n'
+        printf '  Skip this check with: git commit --no-verify\n'
+    } >&2
     exit 1
 fi
 
-# Check description length (max 72 chars for the first line is conventional)
-MSG_LENGTH=$(echo "$COMMIT_MSG" | wc -c | tr -d ' ')
-if [ "$MSG_LENGTH" -gt 72 ]; then
-    echo "${YELLOW}⚠ Commit message first line is ${MSG_LENGTH} chars (recommended max: 72)${NC}" >&2
-    # Warning only, don't block
+# Characters, not bytes (dash's ${#var} counts bytes).
+LENGTH=$(printf '%s' "$SUBJECT" | wc -m | tr -d ' ')
+if [ "$LENGTH" -gt 72 ]; then
+    printf '⚠ Subject is %s characters; 72 or fewer is conventional.\n' "$LENGTH" >&2
 fi
-
 exit 0

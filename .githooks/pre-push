@@ -1,62 +1,60 @@
 #!/bin/sh
 #
-# Pre-push hook: branch naming validation
-# Validates that the branch being pushed follows the naming convention.
+# Pre-push hook: check every branch being pushed, not just the checked-out one.
+# - Blocks pushing straight to the default branch: changes go through a PR.
+# - Checks that each branch is named <type>/<slug>, with a Conventional
+#   Commits type and a lowercase, hyphenated slug.
+# Deleting a remote branch and pushing tags aren't checked.
 #
-# Install: cp .githooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
-# Or set hooks path: git config core.hooksPath .githooks
+# Install with .githooks/setup-hooks.sh. A local check that --no-verify can
+# skip; the repo's main-protection ruleset enforces the same on GitHub.
 
-# Colours for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+set -eu
 
-# Get current branch name
-BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
-
-# Skip if we can't determine the branch (detached HEAD)
-if [ -z "$BRANCH" ]; then
-    exit 0
-fi
-
-# Allow these branches without validation
-EXEMPT_BRANCHES="main|master|dev|develop|staging|production|release"
-
-if echo "$BRANCH" | grep -qE "^($EXEMPT_BRANCHES)$"; then
-    exit 0
-fi
-
-# Valid branch pattern: type/short-description
-# - type must match conventional commit types
-# - description uses lowercase, numbers, and hyphens
-# - no uppercase, no spaces, no special characters
+REMOTE=${1:-origin}   # the remote's name, or its URL for a URL push
 VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
-BRANCH_PATTERN="^($VALID_TYPES)/[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$"
+BRANCH_PATTERN="^($VALID_TYPES)/[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$"
+# Long-lived branches that are named, not typed (unless one is the default).
+LONG_LIVED="main|master|dev|develop|staging|production|release"
 
-if ! echo "$BRANCH" | grep -qE "$BRANCH_PATTERN"; then
-    echo "" >&2
-    echo "${RED}✗ Invalid branch name: ${YELLOW}${BRANCH}${NC}" >&2
-    echo "" >&2
-    echo "  Expected format: ${GREEN}<type>/<short-description>${NC}" >&2
-    echo "" >&2
-    echo "  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert" >&2
-    echo "" >&2
-    echo "  Rules:" >&2
-    echo "    - Lowercase only, no spaces" >&2
-    echo "    - Use hyphens to separate words" >&2
-    echo "    - Keep under 50 characters" >&2
-    echo "    - Must start and end with a letter or number" >&2
-    echo "" >&2
-    echo "  Examples:" >&2
-    echo "    ${GREEN}feat/oauth-google-login${NC}" >&2
-    echo "    ${GREEN}fix/null-payment-response${NC}" >&2
-    echo "    ${GREEN}docs/aws-deployment${NC}" >&2
-    echo "    ${GREEN}refactor/extract-query-builder${NC}" >&2
-    echo "" >&2
-    echo "  Exempt branches: main, master, dev, develop, staging, production, release" >&2
-    echo "  Skip this check with: git push --no-verify" >&2
+# The default branch: ask the remote (we're about to contact it anyway),
+# then git's cached copy, then assume main or master.
+DEFAULT=$(git ls-remote --symref "$REMOTE" HEAD 2>/dev/null | sed -n 's|^ref: refs/heads/\(.*\)[[:space:]]HEAD$|\1|p' | head -n 1)
+if [ -z "$DEFAULT" ]; then
+    DEFAULT=$(git symbolic-ref --quiet --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null || true)
+    DEFAULT=${DEFAULT#"$REMOTE"/}
+fi
+
+fail=0
+# git passes one line per ref: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+    : "$local_ref" "$remote_sha"  # read but not needed
+    case "$remote_ref" in
+        refs/heads/*) branch=${remote_ref#refs/heads/} ;;
+        *) continue ;;  # tags and other refs
+    esac
+    # Deleting a branch (the local sha is all zeros): nothing to check.
+    case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+
+    if [ "$branch" = "$DEFAULT" ] || { [ -z "$DEFAULT" ] && { [ "$branch" = main ] || [ "$branch" = master ]; }; }; then
+        printf '✗ Pushing straight to %s: open a PR from a branch instead.\n' "$branch" >&2
+        fail=1
+        continue
+    fi
+    if printf '%s\n' "$branch" | grep -qE "^($LONG_LIVED)$"; then
+        continue
+    fi
+    if ! printf '%s\n' "$branch" | grep -qE "$BRANCH_PATTERN"; then
+        printf '✗ Invalid branch name: %s\n' "$branch" >&2
+        printf '  Expected <type>/<slug>, e.g. feat/oauth-login or fix/ci\n' >&2
+        printf '  Types: %s\n' "$(printf '%s' "$VALID_TYPES" | sed 's/|/, /g')" >&2
+        printf '  Slug: lowercase letters, digits and hyphens; starts and ends with a letter or digit; up to 50 characters\n' >&2
+        fail=1
+    fi
+done
+
+if [ "$fail" -ne 0 ]; then
+    printf '\nPush blocked. Skip this check with: git push --no-verify\n' >&2
     exit 1
 fi
-
 exit 0

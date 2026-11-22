@@ -1,0 +1,16 @@
+# Line endings. The repo stores text files with LF. On checkout, git may
+# convert them to the platform's line endings (core.autocrlf on Windows),
+# except the files below, which must stay LF everywhere.
+* text=auto
+
+# Shell scripts and git hooks: a CRLF line ending turns `#!/bin/sh` into
+# `#!/bin/sh\r`, and the script fails with "bad interpreter".
+*.sh            text eol=lf
+*.bash          text eol=lf
+.githooks/*     text eol=lf
+.claude/hooks/* text eol=lf
+
+# Python and config files read by tools that care about line endings.
+*.py            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
