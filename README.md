@@ -1,5 +1,7 @@
 # coding-toolkit
 
+<!-- template-readme: .github/scripts/init-from-template.sh replaces this file with a stub for your project. -->
+
 A GitHub template for starting projects with AI coding agents. Built around **Claude Code**, with **Codex** and **Antigravity** (Gemini) as cross-model reviewers, and a development process that runs the right reviews before every PR.
 
 It's my own working setup and it keeps evolving. Fork it, or take the pieces you want.
@@ -20,7 +22,7 @@ It's my own working setup and it keeps evolving. Fork it, or take the pieces you
 You'll need `git`, `python3`, [pre-commit](https://pre-commit.com) (`brew install pre-commit` or `uv tool install pre-commit`) and the GitHub CLI, signed in (`gh auth login`), with admin on the new repo.
 
 1. Click **Use this template**, then clone your new repo.
-2. Run the first-run setup. It fills in the placeholders and installs the git hooks.
+2. Run the first-run setup. It fills in the placeholders, swaps this README for a stub for your project, and installs the git hooks.
    ```bash
    .github/scripts/init-from-template.sh           # preview
    .github/scripts/init-from-template.sh --apply

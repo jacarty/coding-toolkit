@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # First-run setup for a repo created from this template. Fills in the
-# template's placeholders, installs the git hooks, and points you at the
-# remaining steps. Run it once from a fresh clone; it's safe to re-run.
+# template's placeholders, replaces the toolkit's README with a stub for
+# the project, installs the git hooks, and points you at the remaining
+# steps. Run it once from a fresh clone; it's safe to re-run.
 #
 #   .github/scripts/init-from-template.sh            show what would change
 #   .github/scripts/init-from-template.sh --apply    make the changes
@@ -22,7 +23,7 @@
 
 set -euo pipefail
 
-usage() { sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 NAME=""; OWNER=""; AUTHOR=""; APPLY=0; SKIP_TEMPLATE_CHECK=0
 while [ $# -gt 0 ]; do
@@ -144,6 +145,36 @@ edit(
     ],
     needs="OWNER",
 )
+
+# The template's own README describes the toolkit, not the new project.
+# Replace it while it still carries the template marker; once replaced (or
+# edited to drop the marker), it's left alone.
+README_STUB = """# {name}
+
+<!-- What this project is, who it's for, and how to run it. -->
+
+## Development
+
+Built from a template for working with AI coding agents. Agent rules are in
+[AGENTS.md](AGENTS.md), the development process is in
+[docs/process.md](docs/process.md), and the toolkit reference is in
+[docs/toolkit.md](docs/toolkit.md).
+"""
+readme = "README.md"
+print("\nREADME:")
+if (root / readme).exists() and not safe_to_edit(readme):
+    print(f"  - {readme}: skipped (not a tracked regular file)")
+elif (root / readme).exists():
+    with open(root / readme, encoding="utf-8", newline="") as f:
+        current = f.read()
+    if "<!-- template-readme:" in current:
+        if apply:
+            with open(root / readme, "w", encoding="utf-8", newline="") as f:
+                f.write(README_STUB.format(name=env["NAME"]))
+        print(f"  {'✓' if apply else '→'} {readme}: replaced with a stub for this project")
+    else:
+        print(f"  ✓ {readme}: already the project's own")
+
 if missing:
     print("\n  Still to fill in: " + "; ".join(missing))
 sys.exit(3 if missing else 0)

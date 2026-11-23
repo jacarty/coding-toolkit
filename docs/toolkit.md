@@ -1,6 +1,6 @@
 # Toolkit reference
 
-The full reference for this template: every skill, agent, command, hook, script and setting, and why each is set up the way it is. For a short overview and the quick start, see the [README](../README.md).
+The full reference for this template: every skill, agent, command, hook, script and setting, and why each is set up the way it is. In the template itself, the [README](../README.md) is the short overview and quick start; in a repo created from it, `init-from-template.sh` replaces the README with a stub for the new project.
 
 Contents: [Setting up a new repo](#setting-up-a-new-repo) · [What's included](#whats-included) · [Using agents](#using-agents) · [Using skills](#using-skills) · [Customisation](#customisation)
 
@@ -12,7 +12,7 @@ Contents: [Setting up a new repo](#setting-up-a-new-repo) · [What's included](#
 
 1. Click **Use this template** on GitHub to create a new repository
 2. Clone your new repo
-3. Install [pre-commit](https://pre-commit.com) if you don't have it (`uv tool install pre-commit` or `brew install pre-commit`), then run the first-run setup: `.github/scripts/init-from-template.sh` to preview, then `--apply`. It fills in the project name (AGENTS.md and the doc templates), the CODEOWNERS owner and the LICENSE holder, and installs the git hooks. The defaults come from `gh` and `git config`; override them with `--name`, `--owner` and `--author`. Without `gh`, `--apply` also needs `--skip-template-check`, because it can't confirm the repo isn't the template itself.
+3. Install [pre-commit](https://pre-commit.com) if you don't have it (`uv tool install pre-commit` or `brew install pre-commit`), then run the first-run setup: `.github/scripts/init-from-template.sh` to preview, then `--apply`. It fills in the project name (AGENTS.md and the doc templates), the CODEOWNERS owner and the LICENSE holder, replaces the toolkit's README with a stub for your project, and installs the git hooks. The defaults come from `gh` and `git config`; override them with `--name`, `--owner` and `--author`. Without `gh`, `--apply` also needs `--skip-template-check`, because it can't confirm the repo isn't the template itself.
 4. Review the changes with `git diff`, then commit them on a branch and open a PR
 5. Once that PR is merged and `main` has reported `toolkit-checks`, protect `main` and set the repo defaults: `.github/scripts/apply-repo-defaults.sh` to preview, then `--apply` (see **Repo defaults** under [GitHub templates](#github-templates-github))
 6. Fill in `AGENTS.md` with your project's architecture and conventions (look for `[...]` and `<!-- ... -->` placeholders)
@@ -118,13 +118,15 @@ All agents have `memory: project` set, so they accumulate knowledge about this c
 A codified development process that defines when each agent runs automatically during the PR lifecycle:
 
 - **On every edit** — a lint hook formats and lints each edited file with the project's own tools, at no token cost
-- **Pre-PR gates** — code-reviewer, devops-reviewer, test-generator, and the doc-generator skill run conditionally based on what changed; antigravity runs on every PR. Findings are folded into the branch before the PR opens
+- **Pre-PR gates** — code-reviewer, devops-reviewer, test-generator, and the doc-generator skill run conditionally based on what changed; antigravity runs on every PR. Every PR that changes behaviour is also run before it opens: use what was built, the way it will be used, and check it works, because tests and reviewers only check the code. Findings are folded into the branch before the PR opens
 - **Phase boundaries** — codebase-review and doc-generator refresh tech-debt tracking and AGENTS.md at the end of each build-guide phase
 - **Phase acceptance** — phase-acceptance validates PRD requirements when a phase closes out
-- **Trivial-change fast path** — small changes (≤ 50 lines, ≤ 2 files, no critical paths) skip all gates except antigravity
+- **Trivial-change fast path** — small changes (≤ 50 lines, ≤ 2 files, no critical paths) skip all gates except antigravity (and run it, if the change alters behaviour)
 - **No direct commits to main** — docs-only changes go through a `docs/<slug>` PR too
 
 The process doc also covers branch/PR cadence, issue tracking conventions, fold timing for gate findings, and how to handle agent feedback.
+
+**Changing the template itself.** In this template's own repo, what gets built is the starting point of new projects, so "run it" means making one. For a change to anything a new project inherits, make a new repo from your branch: push the branch's files to a new private repo as one initial commit, which is what **Use this template** does. Then follow the README quick start through `init-from-template.sh`, the new project's first PR and `apply-repo-defaults.sh`, and run the template's tests and checks inside the new project, since it inherits them. That catches files that break once the placeholders are filled in, which no check in the template's own repo can see. Delete the trial repo afterwards.
 
 ### Git hooks (`.githooks/`, `.pre-commit-config.yaml`)
 
@@ -159,12 +161,12 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 | `ISSUE_TEMPLATE/feature_request.yml` | Structured feature request form |
 | `workflows/toolkit-checks.yml` | CI on every PR and push to `main`, running the checks below. Keep it in projects you create from the template, and add your own build and test workflow next to it |
 | `scripts/check_toolkit.py` | The checks the workflow runs, standard library only; CI runs it on Python 3.14. Run locally with `python3 -I .github/scripts/check_toolkit.py` |
-| `scripts/test_*.py` | Tests for the checker, the git hooks, `review-diff.sh` and the lint hook, run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
+| `scripts/test_*.py` | Tests for the checker, the git hooks, `review-diff.sh`, the lint hook, `init-from-template.sh` and `apply-repo-defaults.sh` (against a stub `gh`), run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
 | `dependabot.yml` | Weekly PRs to bump the SHA-pinned GitHub Actions. Add your project's own package ecosystems here |
 | `rulesets/main-protection.json` | Protection for the default branch, kept as code. Changes only through PRs; merge commits or squash; no force-pushes or deletion; `toolkit-checks` must pass. Repo admins can bypass on a PR, never by pushing directly |
 | `scripts/review-diff.sh` | Prints the whole change against the default branch (committed, staged, unstaged and untracked); `--stat` for a summary. Every review gate uses it, so they all review the same thing |
-| `scripts/init-from-template.sh` | First-run setup for a new repo: fills in placeholders and installs the git hooks. Previews by default and is safe to re-run. It edits only tracked files, and refuses to apply unless `gh` confirms the repo isn't the template itself (or you pass `--skip-template-check`) |
-| `scripts/apply-repo-defaults.sh` | Applies the rulesets and the repo settings a template doesn't copy (below) |
+| `scripts/init-from-template.sh` | First-run setup for a new repo: fills in placeholders, replaces the toolkit's README with a project stub, and installs the git hooks. Previews by default and is safe to re-run. It edits only tracked files, and refuses to apply unless `gh` confirms the repo isn't the template itself (or you pass `--skip-template-check`) |
+| `scripts/apply-repo-defaults.sh` | Applies the rulesets and the repo settings a template doesn't copy (below). Safe to re-run: what already matches is marked ✓ and left alone |
 
 **Repo defaults.** "Use this template" copies files, not settings, so a new repo starts with `main` unprotected. `.github/scripts/apply-repo-defaults.sh` shows what it would change; add `--apply` to apply it. It needs `gh` with admin on the repo. It sets:
 
@@ -177,6 +179,8 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 `--approvals N` requires reviews for team repos; the default is 0 for solo work. Rulesets on private repos need GitHub Pro or above. Secret scanning on private repos needs GitHub Secret Protection. Anything GitHub refuses is reported, and the rest still applies.
 
 Apply the ruleset once the default branch's CI has reported `toolkit-checks` at least once, which for a new repo means after its first push. Any open PR still on an older workflow then needs an update from `main` before it can merge.
+
+Merge through the PR. GitHub also accepts a push that fast-forwards `main` to a PR's head once that head has passed its checks: it marks the PR merged, but `main` gets no merge commit showing where the branch came in.
 
 `toolkit-checks` runs these checks:
 
