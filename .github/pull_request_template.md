@@ -12,12 +12,13 @@
 
 ## Testing
 
-<!-- How was this tested? -->
+<!-- How was this tested? The tests run, and what you ran to check the change works (docs/process.md, "run it"): the app, endpoint, CLI or script you used, against what, and what it showed. If something couldn't be run, say why. -->
 
 ## Checklist
 
 - [ ] Code follows project conventions
 - [ ] Tests added/updated
+- [ ] What was built was run and works as described (docs/process.md, "run it"), or the gap is noted under Testing
 - [ ] Documentation updated (if applicable), including `AGENTS.md` if project context changed
 - [ ] Pre-PR gates from `docs/process.md` run and findings folded in (antigravity runs on every PR; if the `agy` CLI was unavailable, say so in this description)
 - [ ] No secrets or credentials committed

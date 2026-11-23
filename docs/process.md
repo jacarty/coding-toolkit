@@ -33,7 +33,7 @@ If no issue exists for the work, create one before opening the PR so the board r
 ## Remote gates on every PR
 
 - **`toolkit-checks`** (`.github/workflows/toolkit-checks.yml`): Claude Code settings are strict JSON, hook scripts exist and pass ShellCheck, rulesets require only checks that exist, skill and agent frontmatter is valid, and links between docs resolve. It's a required check in the `main-protection` ruleset. Run it locally with `python3 -I .github/scripts/check_toolkit.py` (ShellCheck separately).
-- **Codex GitHub review** (when the Codex GitHub app is installed on the repo): Codex reviews every PR, following the **Review guidelines** in `AGENTS.md`. Address every P0/P1 before merging: fix it, or justify it in the PR. With Claude's subagents and the local `antigravity` gate, that's three model families on every change.
+- **Codex GitHub review** (when the Codex GitHub app is installed on the repo): Codex reviews every PR, following the **Review guidelines** in `AGENTS.md`. Address every P0/P1 before merging: fix it, or justify it in the PR. Wait for its review to finish before merging: its summary comment on the PR shows the status, and it reacts 👍 when it has nothing to raise. If it has suggestions, verify each one, fix what holds up in a new commit, and comment `@codex review` on the PR: a push alone doesn't start a new review. Repeat until it reacts 👍. It isn't a required check, so the merge button won't wait for it. With Claude's subagents and the local `antigravity` gate, that's three model families on every change.
 
 <!-- Add the other checks that run on every PR in this repo, e.g.:
 - **CI** (`ci`): lint, tests and a build.
@@ -81,10 +81,11 @@ Either way, all findings land on the branch before the PR opens.
 |---|---|
 | **code-reviewer** | Net diff ≥ 300 lines • touches core business logic • touches IAM/auth/permissions • introduces a new function/handler/endpoint • explicitly requested |
 | **devops-reviewer** | Touches IaC files (including lock files) • touches CI/CD workflows • changes compute config (runtime, memory, timeout, entry point) • touches git hooks, `.claude/settings.json` or other tooling config |
-| **test-generator** | A new exported function lands without tests • a new handler/endpoint lands without tests • handler logic grows > 100 net lines in a PR • explicitly requested |
+| **test-generator** | A new exported function lands without tests • a new handler/endpoint lands without tests • a new script, or a change to what a script does, lands without tests (stub external tools such as `gh`, as `.github/scripts/test_*.py` do) • handler logic grows > 100 net lines in a PR • explicitly requested |
 | **doc-generator** (skill) | Any non-trivial PR (i.e. doesn't qualify for the trivial-change fast path). Runs in the main session after code-reviewer findings are folded in. Writes doc updates directly to the branch — AGENTS.md drift, README and `docs/toolkit.md` updates, inline docs for new exports, ADR drafts for design decisions. |
 | **phase-acceptance** | PR completes a build-guide phase (not every PR within a phase — just the final PR that closes out a phase). Reads the relevant PRD section + build guide verification checklist and checks the code against every requirement. |
 | **antigravity** | **Every PR**, trivial ones included, alongside the other pre-PR gates. A read-only review from Gemini, a different model family (skill `.claude/skills/antigravity/`, section 1), run in a clean worktree. Its findings are handled like any gate's. If the `agy` CLI is missing or logged out, say so in the PR body; it doesn't block the PR. |
+| **run it** (not an agent) | **Every PR that changes behaviour.** Before opening the PR, use what was built the way it will be used, and check it does what the PR says: start the app and use the feature, call the endpoint, run the CLI or script, or deploy to a preview or staging environment. Never production. Two cases need more: if the change acts on something outside the repo (an API, a remote, settings), run it against a throwaway target (a scratch repo, a sandbox project), and where it has a preview and an apply, run both, then a re-run that should have nothing left to do; if it changes how the project is set up, follow the setup from a fresh clone. Put what you ran and what it showed under **Testing** in the PR body. If something couldn't be run, say why there; it's a known gap. Tests and reviewers check the code; this checks the result. |
 
 <!-- Add project-specific triggers here. Examples:
 | **code-reviewer** | ...touches `backend/functions/chat/**` or `helpers.mjs` |
@@ -115,7 +116,7 @@ If a PR is **all** of the following:
 - No changes to IaC, CI/CD workflows, git hooks, tooling config (e.g. `.claude/settings.json`), or core business logic
 - No new exports, handlers, routes, or endpoints
 
-...then only **antigravity** runs (the lint hook runs regardless). No other second-opinion agents. Prevents overhead on one-line fixes, typo corrections, and small docs tweaks. The remote gates still run.
+...then only **antigravity** runs (the lint hook runs regardless), plus **run it** if the change alters behaviour. No other second-opinion agents. Prevents overhead on one-line fixes, typo corrections, and small docs tweaks. The remote gates still run.
 
 ## Parallel execution
 
