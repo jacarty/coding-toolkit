@@ -7,8 +7,9 @@
 # GitHub push protection and the main-protection ruleset are the backstop.
 #
 # Versions follow AGENTS.md: current releases at least 7 days old, pinned to
-# the release's commit SHA (a tag can be moved). To update, run
-# `pre-commit autoupdate --freeze`, then check each new release's date.
+# the release's commit SHA (a tag can be moved). Don't run
+# `pre-commit autoupdate`: it takes the newest release, however new. Bump
+# with the dependency-check skill (.claude/skills/dependency-check/).
 minimum_pre_commit_version: '4.6.0'
 default_install_hook_types: [pre-commit]
 
@@ -20,6 +21,14 @@ repos:
     rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1 (2026-03-21)
     hooks:
       - id: gitleaks
+        # gitleaks is built from source with Go. Without a pinned version,
+        # pre-commit uses the machine's Go, or, when there is none, downloads
+        # the newest Go release, which skips the 7-day rule. Pinning makes
+        # every machine build with this exact, checked version (pre-commit
+        # downloads it from go.dev on first install). When you bump gitleaks,
+        # check the `go` line in its go.mod is no higher than this; if it is,
+        # Go would fetch a newer toolchain on its own, so bump this first.
+        language_version: '1.27.4'  # released 2026-11-10
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0 (2025-08-09)

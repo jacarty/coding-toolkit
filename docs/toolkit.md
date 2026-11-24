@@ -35,7 +35,7 @@ The skill will trigger automatically based on what you ask within that project.
 
 ### Skills (`.claude/skills/`)
 
-Nine reusable thinking, planning, and strategy frameworks, three development workflows, and two cross-model review skills. Claude Code loads them automatically based on what you ask. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
+Nine reusable thinking, planning, and strategy frameworks, four development workflows, and two cross-model review skills. Claude Code loads them automatically based on what you ask. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
 
 #### Thinking & Decision-Making
 
@@ -70,6 +70,7 @@ These three chain together: elicit requirements → research the approach → sp
 | `doc-generator` | Creates and updates READMEs, AGENTS.md, docstrings, API docs, changelogs and ADRs; doubles as the pre-PR doc gate | Docs need writing, or a non-trivial PR is about to open |
 | `refactorer` | Framework upgrades, dependency migrations and pattern modernisation, with incremental, test-verified changes | Refactor or migration work is scoped |
 | `code-optimiser` | Finds bottlenecks, N+1 queries, unnecessary allocations and algorithmic waste; reports before editing | Performance is a concern |
+| `dependency-check` | Checks a dependency before it's added or bumped: current major, released at least 7 days ago, pinned exactly | Adding or upgrading a package, action, image, runtime or hook; setting up a new repo |
 
 These were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence stay subagents (below).
 
@@ -138,7 +139,7 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 | `commit-msg` | After writing the commit message | Validates the Conventional Commits format (`type(scope): description`). The description can start with a lowercase letter, a digit or an acronym |
 | `pre-push` | Before each push | Checks every branch being pushed, not just the checked-out one. Blocks pushing straight to the default branch, and checks `type/slug` names (short slugs like `fix/ci` are fine) |
 
-**Scanners:** gitleaks and pre-commit-hooks are maintained tools, pinned to release commit SHAs under the 7-day rule. Update them with `pre-commit autoupdate --freeze`, then check each new release's date.
+**Scanners:** gitleaks and pre-commit-hooks are maintained tools, pinned to release commit SHAs under the 7-day rule. The Go version that builds gitleaks is pinned too, because without it pre-commit downloads the newest Go on a machine that has none. Don't update them with `pre-commit autoupdate`, which takes the newest release however new: check the versions with the `dependency-check` skill when you set up a repo, and bump them the same way.
 
 **False positives:** for a deliberate example in code, add a `gitleaks:allow` comment on that line. For a whole file or finding, use `.gitleaksignore`.
 
