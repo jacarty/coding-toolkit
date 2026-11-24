@@ -208,6 +208,8 @@ cat <<'EOF'
 Next:
   1. Review and commit:  git diff, then commit on a branch and open a PR
      (main isn't protected yet, but the hooks now check branch names).
+     Check the pre-commit hook versions with the dependency-check skill,
+     and bump any in that first PR.
   2. Protect main and set the repo defaults, once CI has reported
      toolkit-checks:    .github/scripts/apply-repo-defaults.sh  (then --apply)
   3. Fill in AGENTS.md (architecture, conventions) and the PRD.
