@@ -42,7 +42,8 @@ You'll need `git`, `python3`, [pre-commit](https://pre-commit.com) (`brew instal
 Optional but recommended:
 
 - install the [Codex GitHub app](https://chatgpt.com/codex) on the repo, so Codex reviews every PR;
-- install the Antigravity (`agy`) and [`codex`](https://github.com/openai/codex) CLIs, for the local cross-model reviews.
+- install the Antigravity (`agy`) and [`codex`](https://github.com/openai/codex) CLIs, for the local cross-model reviews;
+- if you use Codex, trust the repo once (run `codex` in it) so it loads `.codex/config.toml`, which keeps secrets away from it; for Antigravity, merge the home-folder deny rules into your user settings ([how, and its limits](docs/toolkit.md#codex-and-antigravity-permissions-codexconfigtoml)).
 
 ## What's inside
 
@@ -54,6 +55,7 @@ Optional but recommended:
 | `.claude/skills/` | Cross-model review, doc and refactor workflows, planning and thinking frameworks |
 | `.claude/hooks/` | The lint hook |
 | `.claude/settings.json` | Permissions and deny rules (`settings.example.jsonc` explains them and lists opt-ins) |
+| `.codex/config.toml` | The same deny rules for Codex, once you've trusted the repo |
 | `.githooks/`, `.pre-commit-config.yaml` | Git hooks: gitleaks, file sizes, commit messages, branch names |
 | `.github/` | CI (`toolkit-checks`), the `main` ruleset, setup and review scripts, issue and PR templates |
 | `docs/` | PRD, build guide, ADR and tech-debt templates |

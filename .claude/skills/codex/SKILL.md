@@ -18,7 +18,7 @@ This skill is **ad hoc**: use it when asked, on uncommitted work, or on plans, A
 
 ## Hard rules
 
-- **Read-only, always.** Every call passes `-c sandbox_mode='"read-only"'` (the `RO` variable below). Without it, `review` and `resume` fall back to the user's default sandbox (often `workspace-write`); neither takes `-s`. After each run, check the log's `sandbox:` line says `read-only`. Never use `workspace-write`, `danger-full-access`, `--approve-for-me` or any `--dangerously-*` flag unless the user explicitly asks for Codex to edit, and then only `workspace-write` on a branch.
+- **Read-only, always, with the secret denies.** Every call passes the `RO` options below. When the repo has `.codex/config.toml`, they trust the worktree and select its `toolkit-review` profile: read-only, with the same secrets denied as the Claude rules, home-folder credentials included. The setup copies that file from the checkout when it isn't committed yet. Don't add `sandbox_mode` to the profile form: it replaces the profile and drops the denies. Without `RO`, `review` and `resume` fall back to the user's default sandbox (often `workspace-write`); neither takes `-s`. After each run, check the log's `sandbox:` line says `read-only`. If the setup prints `STOP` (`~/.codex/config.toml` sets `sandbox_mode`, or the repo has no `.codex/config.toml`), don't run Codex: tell the user. Only with their explicit OK, use `RO=(-c 'sandbox_mode="read-only"')`, which is read-only but leaves home-folder credentials readable. Never use `workspace-write`, `danger-full-access`, `--approve-for-me` or any `--dangerously-*` flag unless the user explicitly asks for Codex to edit, and then only `workspace-write` on a branch.
 - **Run it in a clean worktree, never in the checkout.** The read-only sandbox stops writes, not reads: Codex can read any file in its workspace, gitignored ones included, and whatever it reads goes to OpenAI. A checkout typically holds `.env` files, local config with real identifiers, Terraform state and other private files. A `git worktree` of `HEAD` has only committed files (Setup).
 - **It sends content to OpenAI** under the user's account. Never point it at secrets, `.env*`, `*.tfstate*`, `*.tfvars`, keys, cloud CLI output, raw production or CI logs, security-scanner findings, or anything holding account IDs, project numbers or service-account emails. Don't ask it to run cloud CLIs, `gh`, or anything that calls an external service.
 - **Don't anchor it.** For an independent opinion, don't put your own conclusion in the prompt. Ask the question; compare answers afterwards.
@@ -29,17 +29,27 @@ This skill is **ad hoc**: use it when asked, on uncommitted work, or on plans, A
 Set these first; write output to the scratchpad with `-o` and keep the log separate (the log is noisy):
 
 ```bash
-RO=(-c 'sandbox_mode="read-only"')
 SP=<absolute scratchpad path>   # absolute: the paths below are used from inside $TREE
 OUT=$SP/codex-<slug>.md; LOG=$SP/codex-<slug>.log; DIFF=$SP/codex-<slug>.diff
 TREE=$SP/codex-<slug>-tree
 git worktree add --detach "$TREE" HEAD     # committed files only: no ignored or private files
+# The repo's deny profile, even when .codex/config.toml isn't committed yet (it holds no secrets).
+if [ ! -f "$TREE/.codex/config.toml" ] && [ -f .codex/config.toml ]; then
+    mkdir -p "$TREE/.codex" && cp .codex/config.toml "$TREE/.codex/"
+fi
+if grep -q '^[[:space:]]*sandbox_mode' ~/.codex/config.toml 2>/dev/null; then
+    echo "STOP: ~/.codex/config.toml sets sandbox_mode, which drops the deny profile"; RO=(--stopped-no-deny-profile)  # codex rejects this: fails closed
+elif [ -f "$TREE/.codex/config.toml" ]; then  # read-only, secrets denied (the toolkit-review profile)
+    RO=(-c "projects={\"$TREE\"={trust_level=\"trusted\"}}" -c 'default_permissions="toolkit-review"')
+else
+    echo "STOP: no .codex/config.toml, so no deny profile"; RO=(--stopped-no-deny-profile)
+fi
 ```
 
 Run every `codex` call from inside `$TREE`, in a subshell so your own shell never sits in a directory that's later removed: `(cd "$TREE" && codex ...)`. Committed branches and commits are visible there (the worktree shares the repo's history); uncommitted changes aren't, so they travel as a diff in the prompt (mode 2). Afterwards:
 
 ```bash
-(cd "$TREE" && git status --porcelain --ignored)   # must print nothing: no edits, no new files
+(cd "$TREE" && git status --porcelain --ignored | grep -v '^?? .codex/$')   # must print nothing: no edits, no new files (the copied config aside)
 git worktree remove --force "$TREE"
 ```
 

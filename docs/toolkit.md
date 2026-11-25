@@ -258,6 +258,37 @@ Every opt-in also skips the auto mode classifier, so add only what you'd trust u
 
 Check what loaded with `/status`; `claude doctor` lists any entry Claude Code rejected.
 
+### Codex and Antigravity permissions (`.codex/config.toml`)
+
+The Claude deny rules above only bind Claude. Codex and Antigravity get their own, as far as each tool allows. What's below was tested with codex-cli 0.164 and agy 1.5.16, against a repo of fake secrets.
+
+**Codex: ships with the repo.** `.codex/config.toml` sets a permission profile (a beta Codex feature) that denies the same secrets as the Claude list: `.env` files, keys and certificates, `secrets/` and `credentials/` folders, cloud credentials, Terraform state and variables, in the repo and in your home folder. The OS sandbox enforces it, so it covers Codex's own file reads and the commands it runs. It also stops environment variables with `KEY`, `SECRET` or `TOKEN` in their names reaching those commands.
+
+- Codex loads the file only once you've trusted the repo: run `codex` in it and choose to trust it, or add `[projects."/path/to/repo"]` with `trust_level = "trusted"` to `~/.codex/config.toml`.
+- A `sandbox_mode` setting anywhere replaces the profile and drops the denies, so check `~/.codex/config.toml` doesn't set one, and don't pass `--sandbox`. The `codex` review skill selects a second, read-only profile with the same denies, `toolkit-review`.
+- A pattern can only deny, so `.env.example`, `.env.sample` and `.env.template` are blocked along with the real `.env` files. `.aws` is denied as a whole folder, wider than Claude's rule.
+- `gh` and `docker` don't run under it, as their config is blocked. `~/.npmrc` and `~/.pypirc` aren't blocked: they hold the registry settings too, and hiding them would send npm and pip around a company gateway to the public registry.
+
+**Antigravity: a user setting, and narrower.** Antigravity has no per-repo permissions file, so its rules go in your own `~/.gemini/antigravity-cli/settings.json` and apply to every project. Its rules are much weaker than Claude's or Codex's:
+
+- A rule must be an **absolute path** to a file or folder. Patterns (`*.pem`, `**/.env`, `regex:`) and `~` don't work, and a relative path breaks every sandboxed command.
+- Rules stop Antigravity's file tool, but shell commands only when the **terminal sandbox** is on. Without it, `cat .env` reads the file whatever the rules say.
+- Antigravity's docs say its sandbox blocks `.env` files by default. In testing it didn't.
+
+So it can't keep a repo's own secrets away from Antigravity by pattern. What it can do is protect the credentials in your home folder, which every project shares. This prints the settings to merge into `~/.gemini/antigravity-cli/settings.json` (add to an existing `permissions.deny` rather than replacing it):
+
+```bash
+python3 -I -c '
+import json, os
+home = os.path.expanduser("~")
+paths = [".ssh", ".aws", ".gnupg", ".config/gcloud", ".config/gh", ".azure", ".kube", ".docker/config.json",
+         ".terraform.d/credentials.tfrc.json", ".terraformrc", ".netrc", ".git-credentials"]
+print(json.dumps({"enableTerminalSandbox": True,
+                  "permissions": {"deny": [f"read_file({home}/{p})" for p in paths]}}, indent=2))'
+```
+
+Merge the output by hand; don't redirect it into `settings.json`, which would replace your other settings. It turns the sandbox on for every project, so sandboxed commands run without network access unless you allow a domain (`read_url(...)`), and see only the workspace and system folders unless you allow more paths. Folders and files that don't exist on your machine are fine to list. As with Codex, `~/.npmrc` and `~/.pypirc` are left out so npm and pip keep using your registry settings. Reviews stay safe either way: the `antigravity` skill runs Gemini read-only, in a clean worktree that has no private files. For interactive use, keep real secrets out of the repo.
+
 ### Claude Code hooks (`.claude/hooks/`)
 
 | Hook | Trigger | What it does |
@@ -283,6 +314,7 @@ This replaces a Haiku `linter` subagent: deterministic tooling does the same job
 | File | Purpose |
 |---|---|
 | `.claude/settings.json` | Claude Code tool permissions and hooks — pre-approves common dev commands, denies reading secrets, and wires up the lint hook. Strict JSON |
+| `.codex/config.toml` | Codex's permission profiles: the same secrets denied as the Claude rules, once you've trusted the repo ([details](#codex-and-antigravity-permissions-codexconfigtoml)) |
 | `.claude/settings.example.jsonc` | Commented reference copy of the settings, with the optional entries. Not loaded by Claude Code |
 | `.editorconfig` | Enforces consistent formatting across editors — indent style, line endings, trailing whitespace |
 | `.gitattributes` | Keeps shell scripts, git hooks, Python and YAML on LF line endings in every checkout, so a Windows `core.autocrlf` can't break them (`#!/bin/sh\r`) |
