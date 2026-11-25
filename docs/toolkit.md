@@ -27,15 +27,17 @@ Contents: [Setting up a new repo](#setting-up-a-new-repo) · [What's included](#
 3. Create or open a **Project**
 4. Click the project name to open **Project Knowledge**
 5. Click **Add content** → **Upload files**
-6. Upload the `SKILL.md` file from any skill folder under `.claude/skills/`
+6. Upload the `SKILL.md` file from any skill folder under `.agents/skills/` (or `.claude/skills/` for the cross-model ones)
 
 The skill will trigger automatically based on what you ask within that project.
 
 ## What's included
 
-### Skills (`.claude/skills/`)
+### Skills (`.agents/skills/`, `.claude/skills/`)
 
-Nine reusable thinking, planning, and strategy frameworks, four development workflows, and two cross-model review skills. Claude Code loads them automatically based on what you ask. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
+Nine reusable thinking, planning, and strategy frameworks, four development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
+
+**One copy, three tools.** The shared skills live in `.agents/skills/`, where Codex and Antigravity read them, and `.claude/skills/` links to each one for Claude Code. Only the two cross-model skills (`codex`, `antigravity`) live in `.claude/skills/` itself, since they exist to call the other tools. To add a shared skill, create it in `.agents/skills/<name>/` and link it: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`; `toolkit-checks` fails if the link is missing. On Windows, turn on Developer Mode (or use an admin shell) and clone with symlinks on: `git clone -c core.symlinks=true <repo>`. Otherwise the links check out as plain text files and Claude Code can't load the shared skills; `toolkit-checks` says so. To fix an existing clone, run `git config core.symlinks true`, then `git checkout -- .claude/skills`. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
 
 #### Thinking & Decision-Making
 
@@ -63,7 +65,7 @@ These three chain together: elicit requirements → research the approach → sp
 | `value-chain-analysis` | Porter's Value Chain — map primary and support activities to find cost and differentiation drivers | You're asking "where in the business is value created or destroyed?" |
 | `vrio-analysis` | VRIO framework — assess whether resources/capabilities deliver sustainable competitive advantage | You're asking "is this defensible — what's our moat?" |
 
-#### Development Workflows (Claude Code only)
+#### Development Workflows
 
 | Skill | Purpose | Use When |
 |---|---|---|
@@ -72,7 +74,19 @@ These three chain together: elicit requirements → research the approach → sp
 | `code-optimiser` | Finds bottlenecks, N+1 queries, unnecessary allocations and algorithmic waste; reports before editing | Performance is a concern |
 | `dependency-check` | Checks a dependency before it's added or bumped: current major, released at least 7 days ago, pinned exactly | Adding or upgrading a package, action, image, runtime or hook; setting up a new repo |
 
-These were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence stay subagents (below).
+These were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence run as gate skills in their own agent (below).
+
+#### Review and Test Gates (fresh context)
+
+Each runs in its own agent (`context: fork` and `agent:` in the skill), so it starts fresh and never sees the session that wrote the code. Codex and Antigravity don't start a fresh agent for them: to keep a gate independent there, run it in a new session, not the one that wrote the code.
+
+| Skill | Runs in agent | Purpose |
+|---|---|---|
+| `code-review-gate` | `code-reviewer` | Reviews the change for correctness, design, error handling, tests and basic security. Read-only |
+| `devops-review-gate` | `devops-reviewer` | Reviews workflows, containers, IaC, hooks and tooling config. Read-only; reports changes, doesn't make them |
+| `test-generation` | `test-generator` | Writes missing tests and reviews existing ones |
+| `phase-acceptance-check` | `phase-acceptance` | Checks a build-guide phase against every PRD requirement before its closing PR |
+| `codebase-assessment` | `codebase-review` | A structured assessment of the whole repo, at phase ends or for an unfamiliar codebase |
 
 #### Cross-Model Review (Claude Code only)
 
@@ -95,7 +109,7 @@ When in doubt: if the options are already known and few, use Trade-Off Analysis.
 
 ### Agents (`.claude/agents/`)
 
-Five custom agents that Claude Code delegates to based on context. They can also be invoked explicitly with `@agent-name`. Each runs in its own fresh context, which keeps reviews independent of the session that wrote the code and keeps their verbose reading out of your main conversation.
+Five agents that the gate skills above run in. Each starts with a fresh context, which keeps reviews independent of the session that wrote the code and keeps their verbose reading out of your main conversation. An agent file sets the model, tools and memory; its instructions live in its skill, so Codex and Antigravity can use them too. Claude Code can also delegate to an agent directly, or you can call one with `@agent-name`; it then reads its skill first.
 
 | Agent | Model | Purpose |
 |---|---|---|
@@ -122,7 +136,7 @@ A codified development process that defines when each agent runs automatically d
 - **Pre-PR gates** — code-reviewer, devops-reviewer, test-generator, and the doc-generator skill run conditionally based on what changed; antigravity runs on every PR. Every PR that changes behaviour is also run before it opens: use what was built, the way it will be used, and check it works, because tests and reviewers only check the code. Findings are folded into the branch before the PR opens
 - **Phase boundaries** — codebase-review and doc-generator refresh tech-debt tracking and AGENTS.md at the end of each build-guide phase
 - **Phase acceptance** — phase-acceptance validates PRD requirements when a phase closes out
-- **Trivial-change fast path** — small changes (≤ 50 lines, ≤ 2 files, no critical paths) skip all gates except antigravity (and run it, if the change alters behaviour)
+- **Trivial-change fast path** — small changes (≤ 50 lines changed, added plus removed; ≤ 2 files; no critical paths) skip all gates except antigravity (and run it, if the change alters behaviour)
 - **No direct commits to main** — docs-only changes go through a `docs/<slug>` PR too
 
 The process doc also covers branch/PR cadence, issue tracking conventions, fold timing for gate findings, and how to handle agent feedback.
@@ -188,7 +202,7 @@ Merge through the PR. GitHub also accepts a push that fast-forwards `main` to a 
 - `.claude/settings.json` is strict JSON. Claude Code skips the whole file on a `//` comment or a trailing comma, silently dropping every permission and hook.
 - Hook scripts exist and are executable.
 - Every status check a ruleset requires is a real workflow job. A renamed job would otherwise block every merge.
-- Skill and agent names match their folders, and every description fits the skill listing.
+- Skill and agent names match their folders, and every description fits the skill listing. Every shared skill in `.agents/skills/` is linked from `.claude/skills/` with a relative link that resolves.
 - Relative links and images between docs resolve (code blocks and HTML comments are skipped).
 - ShellCheck passes on every shell script (picked by its shebang) in `.claude/hooks/`, `.githooks/` and `.github/scripts/`.
 
@@ -266,7 +280,7 @@ The Claude deny rules above only bind Claude. Codex and Antigravity get their ow
 
 - Codex loads the file only once you've trusted the repo: run `codex` in it and choose to trust it, or add `[projects."/path/to/repo"]` with `trust_level = "trusted"` to `~/.codex/config.toml`.
 - A `sandbox_mode` setting anywhere replaces the profile and drops the denies, so check `~/.codex/config.toml` doesn't set one, and don't pass `--sandbox`. The `codex` review skill selects a second, read-only profile with the same denies, `toolkit-review`.
-- A pattern can only deny, so `.env.example`, `.env.sample` and `.env.template` are blocked along with the real `.env` files. `.aws` is denied as a whole folder, wider than Claude's rule.
+- A pattern can only deny, so `.env.example`, `.env.sample` and `.env.template` are blocked along with the real `.env` files. `**` patterns reach 20 folders deep (`glob_scan_max_depth`), which covers any real repo layout; Codex warns on every run without a cap. `.aws` is denied as a whole folder, wider than Claude's rule.
 - `gh` and `docker` don't run under it, as their config is blocked. `~/.npmrc` and `~/.pypirc` aren't blocked: they hold the registry settings too, and hiding them would send npm and pip around a company gateway to the public registry.
 
 **Antigravity: a user setting, and narrower.** Antigravity has no per-repo permissions file, so its rules go in your own `~/.gemini/antigravity-cli/settings.json` and apply to every project. Its rules are much weaker than Claude's or Codex's:
@@ -374,7 +388,7 @@ Your system prompt here.
 
 ### Adding skills
 
-Create a folder in `.claude/skills/` with a `SKILL.md` file:
+Create a folder in `.agents/skills/` with a `SKILL.md` file, then link it from `.claude/skills/` (see **One copy, three tools** above):
 
 ```markdown
 ---

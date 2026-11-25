@@ -14,6 +14,19 @@ from pathlib import Path
 
 import check_toolkit as ck
 
+def _can_symlink() -> bool:
+    """Windows without Developer Mode can't create symlinks."""
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.symlink(tmp, Path(tmp) / "link")
+            return True
+        except OSError:
+            return False
+
+
+CAN_SYMLINK = _can_symlink()
+
+
 
 class RepoTestCase(unittest.TestCase):
     """Each test gets an empty throwaway repo root."""
@@ -150,6 +163,34 @@ class EntryTests(RepoTestCase):
         self.assertIn("doesn't match", found[".claude/skills/wrong/SKILL.md"])
         self.assertIn("no SKILL.md", found[".claude/skills/empty"])
         self.assertIn("2000 characters", found[".claude/skills/long/SKILL.md"])
+
+    @unittest.skipUnless(CAN_SYMLINK, "needs symlinks")
+    def test_shared_skills_are_checked_once_and_must_be_linked(self) -> None:
+        self.write(".agents/skills/shared/SKILL.md", "---\nname: shared\ndescription: does things\n---\n")
+        self.write(".agents/skills/unlinked/SKILL.md", "---\nname: unlinked\ndescription: does things\n---\n")
+        self.write(".agents/skills/badname/SKILL.md", "---\nname: other\ndescription: x\n---\n")
+        (self.root / ".claude/skills").mkdir(parents=True, exist_ok=True)
+        for name in ("shared", "badname"):
+            os.symlink(f"../../.agents/skills/{name}", self.root / f".claude/skills/{name}")
+        os.symlink("../../.agents/skills/gone", self.root / ".claude/skills/gone")
+        found = {f.path: f.message for f in ck.check_frontmatter(self.root)}
+        self.assertNotIn(".claude/skills/shared/SKILL.md", found)
+        self.assertNotIn(".agents/skills/shared/SKILL.md", found)
+        self.assertIn("not linked from .claude/skills", found[".agents/skills/unlinked"])
+        self.assertIn("points at nothing", found[".claude/skills/gone"])
+        bad = [path for path in found if "badname" in path]
+        self.assertEqual(bad, [".agents/skills/badname/SKILL.md"], found)  # once, at the real file
+
+    @unittest.skipUnless(CAN_SYMLINK, "needs symlinks")
+    def test_skill_links_that_wont_work_elsewhere(self) -> None:
+        self.write(".agents/skills/abs/SKILL.md", "---\nname: abs\ndescription: does things\n---\n")
+        (self.root / ".claude/skills").mkdir(parents=True, exist_ok=True)
+        os.symlink(self.root / ".agents/skills/abs", self.root / ".claude/skills/abs")  # absolute
+        self.write(".agents/skills/win/SKILL.md", "---\nname: win\ndescription: does things\n---\n")
+        self.write(".claude/skills/win", "../../.agents/skills/win")  # a link checked out as text
+        found = {f.path: f.message for f in ck.check_frontmatter(self.root)}
+        self.assertIn("absolute", found[".claude/skills/abs"])
+        self.assertIn("core.symlinks", found[".claude/skills/win"])
 
     def test_agent_needs_description_but_no_length_limit(self) -> None:
         self.write(".claude/agents/a.md", "---\nname: a\n---\n")

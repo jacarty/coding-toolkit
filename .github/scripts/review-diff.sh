@@ -77,6 +77,7 @@ if [ "$STAT" = 1 ]; then
     git diff $DIFF_OPTS --stat "$MERGE_BASE" -- "$@"
     # shellcheck disable=SC2016  # expanded by the inner sh, not here
     UNTRACKED_LOOP='for f do
+        if [ -L "$f" ]; then printf " %s | symlink to %s\n" "$f" "$(readlink "$f")"; continue; fi
         [ -f "$f" ] || continue
         printf " %s | %s lines\n" "$f" "$(wc -l < "$f" | tr -d " ")"
     done'
@@ -93,8 +94,14 @@ fi
 git diff $DIFF_OPTS "$MERGE_BASE" -- "$@"
 # git diff --no-index exits 1 when the files differ (always, here), so only a
 # higher exit code is an error. A directory (a nested repository) is skipped.
+# A symlink is shown as the link itself, the way git shows a new one: git
+# diff --no-index would follow a link to a directory instead.
 # shellcheck disable=SC2016
 UNTRACKED_LOOP='for f do
+    if [ -L "$f" ]; then
+        printf "diff --git a/%s b/%s\nnew file mode 120000\n--- /dev/null\n+++ b/%s\n@@ -0,0 +1 @@\n+%s\n\\\\ No newline at end of file\n" "$f" "$f" "$f" "$(readlink "$f")"
+        continue
+    fi
     [ -d "$f" ] && continue
     rc=0
     git diff '"$DIFF_OPTS"' --no-index -- /dev/null "$f" || rc=$?
