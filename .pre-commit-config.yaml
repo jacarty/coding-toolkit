@@ -9,7 +9,7 @@
 # Versions follow AGENTS.md: current releases at least 7 days old, pinned to
 # the release's commit SHA (a tag can be moved). Don't run
 # `pre-commit autoupdate`: it takes the newest release, however new. Bump
-# with the dependency-check skill (.claude/skills/dependency-check/).
+# with the dependency-check skill (.agents/skills/dependency-check/).
 minimum_pre_commit_version: '4.6.0'
 default_install_hook_types: [pre-commit]
 

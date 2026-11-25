@@ -44,7 +44,7 @@ The local agent gates below run **before** the PR opens, so the remote reviewers
 
 ## Agent cadence (local, while working with Claude Code)
 
-Reviewers that benefit from a fresh, independent context are subagents in `.claude/agents/`. Workflows that build on what the session already knows (docs, refactoring, optimisation) and the cross-model reviewers are skills in `.claude/skills/`, and run in the main conversation. Mechanical cleanup is a hook. This is the policy for **when to invoke each one automatically** vs when to use it ad-hoc.
+Gates that need a fresh, independent context are skills that run in their own agent: each skill in `.agents/skills/` (linked from `.claude/skills/`) holds the instructions, and its `context: fork` and `agent:` settings make Claude Code start it in a fresh subagent from `.claude/agents/` (despite the name, this doesn't fork the conversation). So a gate never sees the author's reasoning. Run the gate through its skill, or through its named agent; never as a fork of the conversation, which inherits everything the session has seen. Codex and Antigravity read the same skills from `.agents/skills/` but don't start a fresh agent for them: to keep a gate independent there, run it in a new session, not the one that wrote the code. Workflows that build on what the session already knows (docs, refactoring, optimisation) and the cross-model reviewers are skills that run in the main conversation. Mechanical cleanup is a hook. This is the policy for **when to invoke each one automatically** vs when to use it ad-hoc.
 
 ### On every edit (automatic)
 
@@ -65,25 +65,27 @@ These steps prevent the most common friction: unrelated files in commits, unused
 
 **Review scope**: every gate reviews the same thing: the whole change against the default branch, committed or not. `.github/scripts/review-diff.sh` prints it (`--stat` for a summary), covering commits on the branch, staged and unstaged edits, and untracked files. `code-reviewer`, `devops-reviewer`, the `antigravity` and `codex` skills and `doc-generator` all use it. That way a two-commit fold, or a new file that isn't staged yet, can't fall outside a review.
 
+**Lines changed**, the size the thresholds below use (all but test-generator's, which counts net growth): every line added plus every line removed, against the default branch. A rewrite that adds 40 lines and removes 40 is 80 lines changed, not 0. `.github/scripts/review-diff.sh --stat` gives the figures: add the insertions and deletions on its summary line to the line counts of the untracked files it lists (a file with no final newline counts one short).
+
 **Fold timing** — two legitimate shapes:
 
 - **One-atomic-fold** — keep the working tree uncommitted while the gates run, then commit feature + gate findings as a single commit. Cleanest review experience. Preferred for larger PRs.
 - **Two-commit-fold** — commit features, run gates, add findings as a second commit. Acceptable for small fixes where the extra commit is a minor concern.
 
 **Rule of thumb:**
-- **PR ≥ 300 net lines** → one-atomic-fold
-- **PR < 300 lines AND a single logical fix** → two-commit-fold is fine
+- **PR ≥ 300 lines changed** → one-atomic-fold
+- **PR < 300 lines changed AND a single logical fix** → two-commit-fold is fine
 - **If a background agent is actively writing files while gates run** → always wait for it to finish before committing
 
 Either way, all findings land on the branch before the PR opens.
 
-| Agent | Trigger — runs if ANY of these are true |
+| Gate | Trigger — runs if ANY of these are true |
 |---|---|
-| **code-reviewer** | Net diff ≥ 300 lines • touches core business logic • touches IAM/auth/permissions • introduces a new function/handler/endpoint • explicitly requested |
-| **devops-reviewer** | Touches IaC files (including lock files) • touches CI/CD workflows • changes compute config (runtime, memory, timeout, entry point) • touches git hooks, `.claude/settings.json` or other tooling config |
-| **test-generator** | A new exported function lands without tests • a new handler/endpoint lands without tests • a new script, or a change to what a script does, lands without tests (stub external tools such as `gh`, as `.github/scripts/test_*.py` do) • handler logic grows > 100 net lines in a PR • explicitly requested |
+| **code-reviewer** (`code-review-gate` skill) | ≥ 300 lines changed • touches core business logic • touches IAM/auth/permissions • introduces a new function/handler/endpoint • explicitly requested |
+| **devops-reviewer** (`devops-review-gate` skill) | Touches IaC files (including lock files) • touches CI/CD workflows • changes compute config (runtime, memory, timeout, entry point) • touches git hooks, `.claude/settings.json` or other tooling config |
+| **test-generator** (`test-generation` skill) | A new exported function lands without tests • a new handler/endpoint lands without tests • a new script, or a change to what a script does, lands without tests (stub external tools such as `gh`, as `.github/scripts/test_*.py` do) • handler logic grows by > 100 lines net (added minus removed) in a PR • explicitly requested |
 | **doc-generator** (skill) | Any non-trivial PR (i.e. doesn't qualify for the trivial-change fast path). Runs in the main session after code-reviewer findings are folded in. Writes doc updates directly to the branch — AGENTS.md drift, README and `docs/toolkit.md` updates, inline docs for new exports, ADR drafts for design decisions. |
-| **phase-acceptance** | PR completes a build-guide phase (not every PR within a phase — just the final PR that closes out a phase). Reads the relevant PRD section + build guide verification checklist and checks the code against every requirement. |
+| **phase-acceptance** (`phase-acceptance-check` skill) | PR completes a build-guide phase (not every PR within a phase — just the final PR that closes out a phase). Reads the relevant PRD section + build guide verification checklist and checks the code against every requirement. |
 | **antigravity** | **Every PR**, trivial ones included, alongside the other pre-PR gates. A read-only review from Gemini, a different model family (skill `.claude/skills/antigravity/`, section 1), run in a clean worktree. Its findings are handled like any gate's. If the `agy` CLI is missing or logged out, say so in the PR body; it doesn't block the PR. |
 | **run it** (not an agent) | **Every PR that changes behaviour.** Before opening the PR, use what was built the way it will be used, and check it does what the PR says: start the app and use the feature, call the endpoint, run the CLI or script, or deploy to a preview or staging environment. Never production. Two cases need more: if the change acts on something outside the repo (an API, a remote, settings), run it against a throwaway target (a scratch repo, a sandbox project), and where it has a preview and an apply, run both, then a re-run that should have nothing left to do; if it changes how the project is set up, follow the setup from a fresh clone. Put what you ran and what it showed under **Testing** in the PR body. If something couldn't be run, say why there; it's a known gap. Tests and reviewers check the code; this checks the result. |
 
@@ -94,9 +96,9 @@ Either way, all findings land on the branch before the PR opens.
 
 ### Phase boundaries (periodic, not per-PR)
 
-| Agent | Cadence |
+| Gate | Cadence |
 |---|---|
-| **codebase-review** | End of each build-guide phase. Refreshes tech-debt tracking. |
+| **codebase-review** (`codebase-assessment` skill) | End of each build-guide phase. Refreshes tech-debt tracking. |
 | **doc-generator** (skill) | Paired with the phase-end codebase-review. Drives AGENTS.md refresh, architecture diagram updates, and ADRs for decisions that accumulated during the phase. |
 
 ### Ad-hoc (no automatic trigger)
@@ -111,7 +113,7 @@ Either way, all findings land on the branch before the PR opens.
 ## Exception: trivial-change fast path
 
 If a PR is **all** of the following:
-- ≤ 50 net lines added
+- ≤ 50 lines changed
 - ≤ 2 files touched
 - No changes to IaC, CI/CD workflows, git hooks, tooling config (e.g. `.claude/settings.json`), or core business logic
 - No new exports, handlers, routes, or endpoints
@@ -120,7 +122,7 @@ If a PR is **all** of the following:
 
 ## Parallel execution
 
-When multiple pre-PR gates apply, **spawn the agents in parallel**, not sequentially. `code-reviewer` + `devops-reviewer` + `test-generator` + `antigravity` (in the background) typically finish much faster in parallel. The reviewers are read-only and report findings; only `test-generator` writes files (new tests). So wait for it to finish before committing, and fold everyone's findings in from the main session. Run the `doc-generator` skill once their findings are folded in, so the docs describe the final code. At phase boundaries — `codebase-review` runs as a subagent while `doc-generator` runs in the main session.
+When multiple pre-PR gates apply, **run them in parallel**, not sequentially. `code-reviewer` + `devops-reviewer` + `test-generator` + `antigravity` (in the background) typically finish much faster in parallel. The reviewers are read-only and report findings; only `test-generator` writes files (new tests). So wait for it to finish before committing, and fold everyone's findings in from the main session. Run the `doc-generator` skill once their findings are folded in, so the docs describe the final code. At phase boundaries — the `codebase-assessment` skill runs in its own agent while `doc-generator` runs in the main session.
 
 ## When an agent or gate flags something
 

@@ -13,6 +13,19 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent / "review-diff.sh"
 
+def _can_symlink() -> bool:
+    """Windows without Developer Mode can't create symlinks."""
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.symlink(tmp, Path(tmp) / "link")
+            return True
+        except OSError:
+            return False
+
+
+CAN_SYMLINK = _can_symlink()
+
+
 
 class ReviewDiffTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -40,6 +53,18 @@ class ReviewDiffTests(unittest.TestCase):
 
     def review_diff(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["sh", str(SCRIPT), *args], cwd=self.repo, capture_output=True, text=True, env=self.env)
+
+    @unittest.skipUnless(CAN_SYMLINK, "needs symlinks")
+    def test_untracked_symlinks_are_shown(self) -> None:
+        (self.repo / "target").mkdir()
+        (self.repo / "target" / "SKILL.md").write_text("x\n", encoding="utf-8")
+        os.symlink("target", self.repo / "link")  # a symlink to a directory, as in .claude/skills
+        result = self.review_diff()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("diff --git a/link b/link", result.stdout)
+        self.assertIn("new file mode 120000", result.stdout)
+        stat = self.review_diff("--stat")
+        self.assertIn("link | symlink to target", stat.stdout)
 
     def test_every_kind_of_change_is_included_once(self) -> None:
         self.git("switch", "-q", "-c", "feat/x")

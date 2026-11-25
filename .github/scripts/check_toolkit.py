@@ -426,14 +426,41 @@ def check_entry(path: Path, expected_name: str, root: Path, is_skill: bool) -> l
 
 def check_frontmatter(root: Path) -> list[Finding]:
     found: list[Finding] = []
-    skills = root / ".claude" / "skills"
-    if skills.is_dir():
-        for folder in sorted(p for p in skills.iterdir() if p.is_dir()):
+    # Shared skills live in .agents/skills (read by Codex and Antigravity) and
+    # are linked from .claude/skills; Claude-only skills live in .claude/skills.
+    claude, shared = root / ".claude" / "skills", root / ".agents" / "skills"
+    checked: set[Path] = set()
+    for skills in (shared, claude):  # shared first, so findings name the real file
+        if not skills.is_dir():
+            continue
+        for folder in sorted(skills.iterdir()):
+            if folder.is_symlink() and os.path.isabs(os.readlink(folder)):
+                found.append(Finding(rel(folder, root), None,
+                                     "skill link is absolute, so it breaks in other clones: use ../../.agents/skills/<name>"))
+                continue
+            if folder.is_symlink() and not folder.exists():
+                found.append(Finding(rel(folder, root), None, "skill link points at nothing"))
+                continue
+            if folder.is_file() and not folder.is_symlink() and skills == claude:
+                found.append(Finding(rel(folder, root), None,
+                                     "a plain file where a skill link should be: git checked the symlink out as text. "
+                                     "Turn symlinks on (git config core.symlinks true) and check out again"))
+                continue
+            if not folder.is_dir() or folder.resolve() in checked:
+                continue
+            checked.add(folder.resolve())
             skill = folder / "SKILL.md"
             if not skill.is_file():
                 found.append(Finding(rel(folder, root), None, "skill folder has no SKILL.md"))
             else:
                 found.extend(check_entry(skill, folder.name, root, is_skill=True))
+    if shared.is_dir():
+        linked = {f.resolve() for f in claude.iterdir()} if claude.is_dir() else set()
+        for folder in sorted(f for f in shared.iterdir() if f.is_dir() and not f.is_symlink()):
+            if folder.resolve() not in linked:
+                found.append(Finding(rel(folder, root), None,
+                                     f"not linked from .claude/skills, so Claude Code won't load it: "
+                                     f"ln -s ../../.agents/skills/{folder.name} .claude/skills/{folder.name}"))
     agents = root / ".claude" / "agents"
     if agents.is_dir():
         for agent in sorted(agents.glob("*.md")):

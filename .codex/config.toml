@@ -65,6 +65,10 @@ description = "Workspace writes; secrets and credentials unreadable"
 
 # Outside the repo: credentials in your home folder.
 [permissions.toolkit.filesystem]
+# How deep `**` patterns reach (Linux and Windows scan the tree for them
+# at each command start). 20 levels covers any real repo layout; a secret
+# deeper than that isn't covered. Without a cap, Codex warns on every run.
+glob_scan_max_depth = 20
 "~/.ssh" = "deny"
 "~/.aws" = "deny"
 "~/.gnupg" = "deny"
@@ -122,6 +126,10 @@ description = "Read-only review; secrets and credentials unreadable"
 "**/backend-*.conf" = "deny"
 
 [permissions.toolkit-review.filesystem]
+# How deep `**` patterns reach (Linux and Windows scan the tree for them
+# at each command start). 20 levels covers any real repo layout; a secret
+# deeper than that isn't covered. Without a cap, Codex warns on every run.
+glob_scan_max_depth = 20
 "~/.ssh" = "deny"
 "~/.aws" = "deny"
 "~/.gnupg" = "deny"
