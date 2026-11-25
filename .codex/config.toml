@@ -1,0 +1,141 @@
+# Codex defaults for this repo: the same secrets the Claude deny rules in
+# .claude/settings.json keep away from Claude, kept away from Codex.
+#
+# Codex loads this file only once you've trusted the repo: run `codex` here
+# and choose to trust it, or add this to ~/.codex/config.toml:
+#   [projects."/path/to/this/repo"]
+#   trust_level = "trusted"
+#
+# It uses a permission profile (a beta Codex feature). The OS sandbox enforces
+# it, for Codex's own file reads and for the commands it runs. A `sandbox_mode`
+# setting anywhere (a config layer, ~/.codex/config.toml included, or
+# --sandbox / -s) replaces the profile and drops the denies: remove any you
+# have. The codex review skill uses the read-only toolkit-review profile below.
+#
+# Limits, as tested with codex-cli 0.164:
+# - A pattern can only deny, not allow, so `.env.example`, `.env.sample` and
+#   `.env.template` are blocked along with the real `.env` files.
+# - Per Codex's docs, patterns are matched when each command starts, so a
+#   secret created by a command may only be covered from the next one.
+# - Commands that need a blocked file fail: `gh` (its config is in
+#   ~/.config/gh) and `docker` don't run. Codex's sandbox has no network by
+#   default, so they'd mostly fail there anyway.
+# - It's a guardrail, not a vault: keep real secrets out of the repo.
+
+default_permissions = "toolkit"
+
+[permissions.toolkit]
+extends = ":workspace"
+description = "Workspace writes; secrets and credentials unreadable"
+
+# Inside the repo. Files: `**/<name>`; folders: `**/<name>/**`.
+[permissions.toolkit.filesystem.":workspace_roots"]
+"." = "write"
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.env" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/*.jks" = "deny"
+"**/*.keystore" = "deny"
+"**/id_rsa" = "deny"
+"**/id_ed25519" = "deny"
+"**/id_ecdsa" = "deny"
+"**/id_dsa" = "deny"
+"**/*.secret" = "deny"
+"**/*.password" = "deny"
+"**/.netrc" = "deny"
+"**/.git-credentials" = "deny"
+"**/.secrets" = "deny"
+"**/.secrets/**" = "deny"
+"**/secrets.json" = "deny"
+"**/secrets/**" = "deny"
+"**/credentials/**" = "deny"
+"private/**" = "deny"
+"**/.aws/**" = "deny"
+"**/.kube/config" = "deny"
+"**/*.tfvars" = "deny"
+"**/*.tfvars.json" = "deny"
+"**/*.tfstate" = "deny"
+"**/*.tfstate.*" = "deny"
+"**/backend.conf" = "deny"
+"**/backend-*.conf" = "deny"
+
+# Outside the repo: credentials in your home folder.
+[permissions.toolkit.filesystem]
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+"~/.gnupg" = "deny"
+"~/.config/gcloud" = "deny"
+"~/.config/gh" = "deny"
+"~/.azure" = "deny"
+"~/.terraform.d/credentials.tfrc.json" = "deny"
+"~/.terraformrc" = "deny"
+"~/.docker/config.json" = "deny"
+"~/.kube/config" = "deny"
+"~/.netrc" = "deny"
+"~/.git-credentials" = "deny"
+# Not ~/.npmrc or ~/.pypirc: they hold the registry settings too, so hiding
+# them makes npm and pip skip a company gateway and go to the public registry.
+
+# The same denies, read-only: what the codex review skill uses, selected with
+# `-c default_permissions="toolkit-review"` (setting `sandbox_mode` instead
+# would drop the denies, leaving home credentials readable).
+[permissions.toolkit-review]
+extends = ":read-only"
+description = "Read-only review; secrets and credentials unreadable"
+
+[permissions.toolkit-review.filesystem.":workspace_roots"]
+"." = "read"
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.env" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/*.jks" = "deny"
+"**/*.keystore" = "deny"
+"**/id_rsa" = "deny"
+"**/id_ed25519" = "deny"
+"**/id_ecdsa" = "deny"
+"**/id_dsa" = "deny"
+"**/*.secret" = "deny"
+"**/*.password" = "deny"
+"**/.netrc" = "deny"
+"**/.git-credentials" = "deny"
+"**/.secrets" = "deny"
+"**/.secrets/**" = "deny"
+"**/secrets.json" = "deny"
+"**/secrets/**" = "deny"
+"**/credentials/**" = "deny"
+"private/**" = "deny"
+"**/.aws/**" = "deny"
+"**/.kube/config" = "deny"
+"**/*.tfvars" = "deny"
+"**/*.tfvars.json" = "deny"
+"**/*.tfstate" = "deny"
+"**/*.tfstate.*" = "deny"
+"**/backend.conf" = "deny"
+"**/backend-*.conf" = "deny"
+
+[permissions.toolkit-review.filesystem]
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+"~/.gnupg" = "deny"
+"~/.config/gcloud" = "deny"
+"~/.config/gh" = "deny"
+"~/.azure" = "deny"
+"~/.terraform.d/credentials.tfrc.json" = "deny"
+"~/.terraformrc" = "deny"
+"~/.docker/config.json" = "deny"
+"~/.kube/config" = "deny"
+"~/.netrc" = "deny"
+"~/.git-credentials" = "deny"
+
+# Environment variables with KEY, SECRET or TOKEN in their names aren't passed
+# to the commands Codex runs (Codex passes them by default).
+[shell_environment_policy]
+ignore_default_excludes = false
