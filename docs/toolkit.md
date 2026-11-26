@@ -35,7 +35,7 @@ The skill will trigger automatically based on what you ask within that project.
 
 ### Skills (`.agents/skills/`, `.claude/skills/`)
 
-Nine reusable thinking, planning, and strategy frameworks, four development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
+Nine reusable thinking, planning, and strategy frameworks, six development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
 
 **One copy, three tools.** The shared skills live in `.agents/skills/`, where Codex and Antigravity read them, and `.claude/skills/` links to each one for Claude Code. Only the two cross-model skills (`codex`, `antigravity`) live in `.claude/skills/` itself, since they exist to call the other tools. To add a shared skill, create it in `.agents/skills/<name>/` and link it: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`; `toolkit-checks` fails if the link is missing. On Windows, turn on Developer Mode (or use an admin shell) and clone with symlinks on: `git clone -c core.symlinks=true <repo>`. Otherwise the links check out as plain text files and Claude Code can't load the shared skills; `toolkit-checks` says so. To fix an existing clone, run `git config core.symlinks true`, then `git checkout -- .claude/skills`. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
 
@@ -73,8 +73,10 @@ These three chain together: elicit requirements → research the approach → sp
 | `refactorer` | Framework upgrades, dependency migrations and pattern modernisation, with incremental, test-verified changes | Refactor or migration work is scoped |
 | `code-optimiser` | Finds bottlenecks, N+1 queries, unnecessary allocations and algorithmic waste; reports before editing | Performance is a concern |
 | `dependency-check` | Checks a dependency before it's added or bumped: current major, released at least 7 days ago, pinned exactly | Adding or upgrading a package, action, image, runtime or hook; setting up a new repo |
+| `debugging` | Reproduce, narrow down, one hypothesis at a time, fix the root cause, then a regression test that fails without the fix | A bug, failing test or CI job, or unexpected behaviour, before proposing a fix |
+| `commit-and-pr` | Checks the branch name, staging, local checks and pre-PR gates, then writes the Conventional Commits message and the PR body from the template | The change is ready to commit, or you need the commit or PR text |
 
-These were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence run as gate skills in their own agent (below).
+The first three were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence run as gate skills in their own agent (below).
 
 #### Review and Test Gates (fresh context)
 

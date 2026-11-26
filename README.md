@@ -51,7 +51,7 @@ Optional but recommended:
 |---|---|
 | `AGENTS.md` | Project rules for every agent: architecture, conventions, the version policy |
 | `docs/process.md` | Which reviews run when: before a PR, at phase boundaries, and the fast path for trivial changes |
-| `.agents/skills/` | The shared skills, for Claude, Codex and Antigravity: review and test gates, doc and refactor workflows, planning and thinking frameworks |
+| `.agents/skills/` | The shared skills, for Claude, Codex and Antigravity: review and test gates, workflows (docs, refactoring, debugging, commit and PR), planning and thinking frameworks |
 | `.claude/skills/` | Links to the shared skills, plus the Claude-only cross-model review skills |
 | `.claude/agents/` | Five subagents that the gate skills run in, each with a fresh context: code review, CI and infra review, test writing, codebase review, phase acceptance |
 | `.claude/hooks/` | The lint hook |
