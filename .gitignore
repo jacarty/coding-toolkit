@@ -36,12 +36,20 @@ id_ecdsa*
 id_dsa*
 *.secret
 *.password
+secrets/
+credentials/
+/private/
+**/.aws/credentials
+**/.aws/config
+**/.kube/config
 
 # Terraform state and variables (can hold secrets)
 *.tfstate
 *.tfstate.*
 *.tfvars
 *.tfvars.json
+backend.conf
+backend-*.conf
 .terraform/
 
 # Node.js

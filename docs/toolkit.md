@@ -35,7 +35,7 @@ The skill will trigger automatically based on what you ask within that project.
 
 ### Skills (`.agents/skills/`, `.claude/skills/`)
 
-Nine reusable thinking, planning, and strategy frameworks, six development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
+Nine reusable thinking, planning, and strategy frameworks, seven development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
 
 **One copy, three tools.** The shared skills live in `.agents/skills/`, where Codex and Antigravity read them, and `.claude/skills/` links to each one for Claude Code. Only the two cross-model skills (`codex`, `antigravity`) live in `.claude/skills/` itself, since they exist to call the other tools. To add a shared skill, create it in `.agents/skills/<name>/` and link it: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`; `toolkit-checks` fails if the link is missing. On Windows, turn on Developer Mode (or use an admin shell) and clone with symlinks on: `git clone -c core.symlinks=true <repo>`. Otherwise the links check out as plain text files and Claude Code can't load the shared skills; `toolkit-checks` says so. To fix an existing clone, run `git config core.symlinks true`, then `git checkout -- .claude/skills`. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
 
@@ -75,6 +75,7 @@ These three chain together: elicit requirements → research the approach → sp
 | `dependency-check` | Checks a dependency before it's added or bumped: current major, released at least 7 days ago, pinned exactly | Adding or upgrading a package, action, image, runtime or hook; setting up a new repo |
 | `debugging` | Reproduce, narrow down, one hypothesis at a time, fix the root cause, then a regression test that fails without the fix | A bug, failing test or CI job, or unexpected behaviour, before proposing a fix |
 | `commit-and-pr` | Checks the branch name, staging, local checks and pre-PR gates, then writes the Conventional Commits message and the PR body from the template | The change is ready to commit, or you need the commit or PR text |
+| `adopt-toolkit` | Brings the toolkit into an existing repo that wasn't made from the template: takes stock, lets you pick the pieces, copies what's missing and merges what exists, never overwriting | Adding the toolkit to an existing project (run it with a toolkit checkout and the target repo) |
 
 The first three were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence run as gate skills in their own agent (below).
 
@@ -159,6 +160,30 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 
 **False positives:** for a deliberate example in code, add a `gitleaks:allow` comment on that line. For a whole file or finding, use `.gitleaksignore`.
 
+**Linters (optional):** code linting runs through Claude's lint hook after each edit, which doesn't cover Codex, Antigravity or people. To lint at commit time too, add `local` hooks that run the linters the project already installs, so their versions come from its lockfile and need no pins here. For example:
+
+```yaml
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: eslint
+        name: eslint
+        entry: npx --no-install eslint
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        language: system
+        types_or: [sh, bash]
+```
+
+Keep only the ones the project uses; each needs its tool installed (as a dev dependency, or on the PATH; in a uv project, `entry: uv run ruff check --force-exclude`). pre-commit's own hook repos for these tools would need pinning under the 7-day rule, and they run a second copy of the tool whose version can drift from the project's.
+
 **Scanning the whole repo:** the gitleaks hook only looks at what's staged, even with `pre-commit run --all-files`. Install gitleaks itself (`brew install gitleaks`), then run `gitleaks dir .` for the current files or `gitleaks git .` for the full history.
 
 **Skipping:** any hook can be skipped with `--no-verify`.
@@ -178,7 +203,7 @@ Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup sc
 | `ISSUE_TEMPLATE/feature_request.yml` | Structured feature request form |
 | `workflows/toolkit-checks.yml` | CI on every PR and push to `main`, running the checks below. Keep it in projects you create from the template, and add your own build and test workflow next to it |
 | `scripts/check_toolkit.py` | The checks the workflow runs, standard library only; CI runs it on Python 3.14. Run locally with `python3 -I .github/scripts/check_toolkit.py` |
-| `scripts/test_*.py` | Tests for the checker, the git hooks, `review-diff.sh`, the lint hook, `init-from-template.sh` and `apply-repo-defaults.sh` (against a stub `gh`), run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
+| `scripts/test_*.py` | Tests for the checker, the git hooks, `.gitignore` (it must ignore every secret Claude is denied), `review-diff.sh`, the lint hook, `init-from-template.sh` and `apply-repo-defaults.sh` (against a stub `gh`), run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
 | `dependabot.yml` | Weekly PRs to bump the SHA-pinned GitHub Actions. Add your project's own package ecosystems here |
 | `rulesets/main-protection.json` | Protection for the default branch, kept as code. Changes only through PRs; merge commits or squash; no force-pushes or deletion; `toolkit-checks` must pass. Repo admins can bypass on a PR, never by pushing directly |
 | `scripts/review-diff.sh` | Prints the whole change against the default branch (committed, staged, unstaged and untracked); `--stat` for a summary. Every review gate uses it, so they all review the same thing |
