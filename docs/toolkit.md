@@ -147,6 +147,8 @@ The process doc also covers branch/PR cadence, issue tracking conventions, fold 
 
 **Changing the template itself.** In this template's own repo, what gets built is the starting point of new projects, so "run it" means making one. For a change to anything a new project inherits, make a new repo from your branch: push the branch's files to a new private repo as one initial commit, which is what **Use this template** does. Then follow the README quick start through `init-from-template.sh`, the new project's first PR and `apply-repo-defaults.sh`, and run the template's tests and checks inside the new project, since it inherits them. That catches files that break once the placeholders are filled in, which no check in the template's own repo can see. Delete the trial repo afterwards.
 
+**Known gaps in the template repo** go on its issue tracker, not in `docs/tech-debt.md`: that file is copied into every new project, so rows added here would arrive in projects that don't have the gap.
+
 ### Git hooks (`.githooks/`, `.pre-commit-config.yaml`)
 
 Installed once per clone with `.githooks/setup-hooks.sh`; the first-run setup script does this for you. Requires the [pre-commit](https://pre-commit.com) tool: `uv tool install pre-commit`, `pipx install pre-commit` or `brew install pre-commit`.
@@ -199,14 +201,15 @@ Keep only the ones the project uses; each needs its tool installed (as a dev dep
 |---|---|
 | `CODEOWNERS` | Default code ownership. Ships with a `@YOUR-GITHUB-USERNAME` placeholder that `init-from-template.sh` fills in |
 | `SECURITY.md` | Security policy with vulnerability reporting instructions |
-| `pull_request_template.md` | Default PR description with What/Why/How/Testing sections and a checklist that includes the pre-PR gates |
+| `pull_request_template.md` | Default PR description with What/Why/How/Testing/Known gaps sections and a checklist that includes the pre-PR gates |
 | `ISSUE_TEMPLATE/bug_report.yml` | Structured bug report form |
 | `ISSUE_TEMPLATE/feature_request.yml` | Structured feature request form |
 | `workflows/toolkit-checks.yml` | CI on every PR and push to `main`, running the checks below. Keep it in projects you create from the template, and add your own build and test workflow next to it |
 | `scripts/check_toolkit.py` | The checks the workflow runs, standard library only; CI runs it on Python 3.14. Run locally with `python3 -I .github/scripts/check_toolkit.py` |
-| `scripts/test_*.py` | Tests for the checker, the git hooks, `.gitignore` (it must ignore every secret Claude is denied), `review-diff.sh`, the lint hook, `init-from-template.sh` and `apply-repo-defaults.sh` (against a stub `gh`), run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
+| `scripts/test_*.py` | Tests for the checker, the git hooks, `.gitignore` (it must ignore every secret Claude is denied), the Codex and Antigravity deny lists (they must cover Claude's, bar `~/.npmrc` and `~/.pypirc`), `review-diff.sh`, the lint hook, `init-from-template.sh` and `apply-repo-defaults.sh` (against a stub `gh`), run by the workflow: `python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'` |
 | `dependabot.yml` | Weekly PRs to bump the SHA-pinned GitHub Actions. Add your project's own package ecosystems here |
 | `rulesets/main-protection.json` | Protection for the default branch, kept as code. Changes only through PRs; merge commits or squash; no force-pushes or deletion; `toolkit-checks` must pass. Repo admins can bypass on a PR, never by pushing directly |
+| `scripts/deny_rules.py` | Sample paths for Claude's Read deny rules, at several depths, shared by the `.gitignore` and deny-parity tests |
 | `scripts/review-diff.sh` | Prints the whole change against the default branch (committed, staged, unstaged and untracked); `--stat` for a summary. Every review gate uses it, so they all review the same thing |
 | `scripts/init-from-template.sh` | First-run setup for a new repo: fills in placeholders, replaces the toolkit's README with a project stub, and installs the git hooks. Previews by default and is safe to re-run. It edits only tracked files, and refuses to apply unless `gh` confirms the repo isn't the template itself (or you pass `--skip-template-check`) |
 | `scripts/apply-repo-defaults.sh` | Applies the rulesets and the repo settings a template doesn't copy (below). Safe to re-run: what already matches is marked ✓ and left alone |

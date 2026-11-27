@@ -45,7 +45,7 @@ Show the user this list, marked with what the target already has, and let them p
 
 **`.claude/settings.json`:** the toolkit's file holds an `allow` list designed for auto mode, the `deny` rules and the lint hook. A target with no settings file gets the whole file; say so, since the allow list comes with it. Without the Lint hook piece, leave out the `hooks` entry, or every edit runs a hook script that isn't there.
 
-**Never adopt** what only makes sense in the template: `README.md`, `LICENSE`, `docs/toolkit.md`, `init-from-template.sh`, `check_toolkit.py`, `toolkit-checks.yml` and the `test_*.py` files. They test the toolkit itself, so in the target they'd fail on its layout or check things it didn't adopt.
+**Never adopt** what only makes sense in the template: `README.md`, `LICENSE`, `docs/toolkit.md`, `init-from-template.sh`, `check_toolkit.py`, `toolkit-checks.yml`, the `test_*.py` files and `deny_rules.py`, which only they use. They test the toolkit itself, so in the target they'd fail on its layout or check things it didn't adopt.
 
 ## 3. Copy and merge
 
