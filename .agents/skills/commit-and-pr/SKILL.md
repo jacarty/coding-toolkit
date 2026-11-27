@@ -21,16 +21,18 @@ The last step before a PR: check the change is ready, then write the commit and 
    - If files are already staged, check `git diff --cached --name-only` is exactly the intended list.
 3. **Local checks.** Run the project's full lint, tests and build (the commands are in `AGENTS.md` under Testing, or the project's own config). All must pass. A failure is fixed first, not committed and explained.
 4. **Gates.** Work out from `docs/process.md` which pre-PR gates this change needs: the lines changed and files touched, against the fast path and each gate's trigger. **Run it** is needed when the change alters behaviour.
-   - Confirm each one ran on the final change, and its findings were handled as `docs/process.md` says ("When an agent or gate flags something"): blocking findings and phase-acceptance gaps fixed; non-blocking ones fixed, or added to `docs/tech-debt.md` and listed under "Known gaps" in the PR body.
+   - Confirm each one ran, and its findings were handled as `docs/process.md` says ("When an agent or gate flags something"): blocking findings and phase-acceptance gaps fixed; non-blocking ones fixed, or added to `docs/tech-debt.md` and listed under "Known gaps" in the PR body.
    - If a gate hasn't run, say which and ask before going on. `doc-generator` and **run it** belong in this session, so run them. Don't run a gate that needs a fresh context (`code-review-gate`, `devops-review-gate`, `test-generation`, `phase-acceptance-check`) in this session (in Claude Code, the gate skill starts its own agent; in Codex or Antigravity, a new session). The `antigravity` gate runs only from Claude Code; if it couldn't run, the PR body says so.
+   - If anything other than wording changed after a gate ran, check the re-review that `docs/process.md` ("Changes after the gates") asks for has run on the final diff: antigravity, plus any gate whose trigger the later change, or the whole change, now meets. Not every gate. If it hasn't, say which and ask before going on.
    - Don't write a PR that claims a gate it didn't get.
 5. **Commit message.** Conventional Commits, which the `commit-msg` hook checks:
    - subject: `type(scope): description`, where the scope is optional (lowercase letters, digits, `.`, `_` and `-`) and `!` before the colon marks a breaking change;
    - the description is imperative, starts with a lowercase letter, a digit or an acronym (`fix: handle empty input`, not `fix: Handle…`), and doesn't end with a full stop; keep the subject to 72 characters;
    - body: why the change was made and anything a reviewer would otherwise ask, wrapped at 72;
    - no attribution or co-author lines unless the user asks for them.
-6. **PR body.** Fill the repo's template (`.github/pull_request_template.md`) section by section, keeping its headings.
+6. **PR body.** Fill the repo's template (`.github/pull_request_template.md`) section by section, keeping its headings (drop Known gaps when there are none). Say which gates saw the final diff.
    - **Testing** states what was actually run and what it showed, and any gap, with the reason.
+   - **Known gaps** lists what's deferred in the change itself: a gate finding left for later, behaviour that couldn't be run or tested. Each one gets a row in `docs/tech-debt.md` in the same PR, so it isn't lost once the PR merges (in the template's own repo, an issue instead: `docs/toolkit.md`). A gate that couldn't run, such as a logged-out `agy`, is noted in the PR body only.
    - Tick a checklist box only when it's true. Leave the rest unticked and say why.
    - Reference the tracked issue (`docs/process.md`, Issue tracking). If the tracker is private and the repo isn't, keep the body self-explanatory without the link.
    - The same rule as the commit: no identifiers, hostnames, emails or raw logs.

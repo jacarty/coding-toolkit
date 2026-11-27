@@ -7,30 +7,10 @@ Run: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'
 
 from __future__ import annotations
 
-import json
 import subprocess
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def sample_paths() -> list[str]:
-    """A path for each repo-level Read deny rule: `**/` becomes a folder, `*` becomes `x`."""
-    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    paths = []
-    for rule in settings["permissions"]["deny"]:
-        if not rule.startswith("Read(") or rule.startswith(("Read(~", "Read(!")):
-            continue
-        pattern = rule[5:-1]
-        path = pattern.lstrip("/").replace("**/", "sub/")
-        if path.endswith("/**"):
-            path = path[:-3] + "/x"
-        path = path.replace("*", "x")
-        paths.append(path)
-        if not pattern.startswith("/"):  # unanchored, like `.env`: any folder
-            paths.append("sub/" + path)
-    return paths
+from deny_rules import ROOT, repo_samples
 
 
 class GitignoreTests(unittest.TestCase):
@@ -45,8 +25,8 @@ class GitignoreTests(unittest.TestCase):
         return set(result.stdout.split("\n")) - {""}
 
     def test_denied_secrets_are_ignored(self) -> None:
-        paths = sample_paths()
-        self.assertGreater(len(paths), 20)
+        paths = repo_samples()
+        self.assertGreater(len(paths), 50)
         missing = sorted(set(paths) - self.check_ignore(paths))
         self.assertEqual(missing, [], "add these to .gitignore, or drop the deny rule")
 

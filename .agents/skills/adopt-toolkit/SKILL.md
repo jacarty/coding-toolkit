@@ -13,19 +13,21 @@ Repos created from the template get the toolkit through `init-from-template.sh`.
 
 Read, don't change. Note for each what's already there:
 - **Agent instructions:** `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules` or similar.
-- **Agent config:** `.claude/` (settings, agents, skills, hooks), `.agents/skills/`, `.codex/config.toml`.
+- **Agent config:** `.claude/` (settings, agents, skills, hooks), `.agents/skills/`, `.codex/config.toml`, and a `.claudeignore` (Claude Code doesn't read it: its secret entries become deny rules). In `settings.json`, flag broad allow entries that undercut the deny rules or auto mode, such as `Bash(cp:*)`, `Bash(mv:*)`, `Bash(gh:*)` or `Bash(git push:*)`.
+- **An older copy of this toolkit:** files that match an earlier version (the same skill and agent names, `.githooks/`, `.claudeignore`, a `@YOUR-GITHUB-USERNAME` placeholder). See **Upgrading an older copy** in step 3.
 - **Git hooks:** `git config core.hooksPath`, `.pre-commit-config.yaml`, husky (`.husky/`), lefthook (`lefthook.yml`), or files in `.git/hooks/`.
 - **Conventions:** recent commit messages and branch names (`git log --oneline -20`, `git branch -r`). Do they follow Conventional Commits and `<type>/<slug>`?
 - **CI:** the workflows, and the name of the check that must pass on PRs (the job name, or its `name:`).
 - **GitHub:** `.github/pull_request_template.md`, `CODEOWNERS`, rulesets (`gh api repos/OWNER/REPO/rulesets`) and classic protection (`gh api repos/OWNER/REPO/branches/BRANCH/protection`), and the merge settings (`gh repo view --json mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed`).
 - **Ignore rules:** `.gitignore`.
 - **Linting:** which formatters and linters the target configures (ruff, eslint, prettier, gofmt…). The lint hook only runs tools the project has set up.
+- **The target's own automation:** anything that runs `git commit` or `git push` itself (scripts, agents, release tooling). The adopted hooks will check those commits too.
 
 Don't open secret files to take stock: their names are enough.
 
 ## 2. Choose the pieces
 
-Show the user this list, marked with what the target already has, and let them pick. Recommend Agent rules, Process, Skills, Reviewer agents and Secret guardrails for any repo.
+Show the user this list, marked with what the target already has, and let them pick. Recommend Agent rules, Process, Skills, Reviewer agents and Secret guardrails for any repo, and the Lint hook when the target configures a linter.
 
 | Piece | Toolkit files |
 |---|---|
@@ -41,19 +43,31 @@ Show the user this list, marked with what the target already has, and let them p
 | Editor defaults | `.editorconfig` |
 | Worktree commands | `.claude/commands/` |
 
-**Skills:** the gates need `code-review-gate`, `devops-review-gate`, `test-generation`, `phase-acceptance-check`, `codebase-assessment` and `doc-generator`; `commit-and-pr`, `debugging`, `dependency-check` and `project-retrospective` back the process. `code-optimiser` and `refactorer` are general workflows. Offer the planning and strategy skills as a group the user can drop: `requirements-elicitation`, `research-brief`, `implementation-spec`, `tree-of-thought`, `graph-of-thought`, `trade-off-analysis`, `design-thinking-ideation`, `value-chain-analysis`, `vrio-analysis`. If the target doesn't plan in phases, leave out `phase-acceptance-check` too. Leave out `adopt-toolkit` itself: both `.agents/skills/adopt-toolkit` and its link in `.claude/skills/`.
+**Skills:** the gates need `code-review-gate`, `devops-review-gate`, `test-generation`, `phase-acceptance-check`, `codebase-assessment` and `doc-generator`; `commit-and-pr`, `debugging`, `dependency-check` and `project-retrospective` back the process. `code-optimiser` and `refactorer` are general workflows. Offer the planning and strategy skills as a group the user can drop: `requirements-elicitation`, `research-brief`, `implementation-spec`, `tree-of-thought`, `graph-of-thought`, `trade-off-analysis`, `design-thinking-ideation`, `value-chain-analysis`, `vrio-analysis`. If the target doesn't plan in phases, leave out `phase-acceptance-check` too. Leave out `adopt-toolkit` itself: both `.agents/skills/adopt-toolkit` and its link in `.claude/skills/`. The target's own skills: offer to move them into `.agents/skills/` and link them from `.claude/skills/` with a relative link (`ln -s ../../.agents/skills/<name> .claude/skills/<name>`), so Codex and Antigravity see them too. Check first that no name clashes with a toolkit skill.
 
 **`.claude/settings.json`:** the toolkit's file holds an `allow` list designed for auto mode, the `deny` rules and the lint hook. A target with no settings file gets the whole file; say so, since the allow list comes with it. Without the Lint hook piece, leave out the `hooks` entry, or every edit runs a hook script that isn't there.
 
-**Never adopt** what only makes sense in the template: `README.md`, `LICENSE`, `docs/toolkit.md`, `init-from-template.sh`, `check_toolkit.py`, `toolkit-checks.yml` and the `test_*.py` files. They test the toolkit itself, so in the target they'd fail on its layout or check things it didn't adopt.
+**Never adopt** what only makes sense in the template: `README.md`, `LICENSE`, `docs/toolkit.md`, `init-from-template.sh`, `check_toolkit.py`, `toolkit-checks.yml`, the `test_*.py` files and `deny_rules.py`, which only they use. They test the toolkit itself, so in the target they'd fail on its layout or check things it didn't adopt.
 
 ## 3. Copy and merge
 
 - **The target doesn't have the file:** copy it. For `CODEOWNERS`, check the root and `docs/` too: GitHub uses only one, so merge into an existing one instead. Keep the `.claude/skills/` links as links (`cp -P`), and fill in placeholders (`[Project Name]`, `@YOUR-GITHUB-USERNAME`) from the target.
+- **Upgrading an older copy:** when a target file is an older version of a toolkit file nobody customises (skills, agents, `.githooks/`, scripts, templates), offer to replace it, and show the diff. Files the target customises (`AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.pre-commit-config.yaml`, `.gitignore`, `docs/process.md`) still merge, as below. The old pieces map to the new ones:
+
+  | Old | New |
+  |---|---|
+  | agents `code-reviewer`, `devops-reviewer`, `test-generator`, `codebase-review`, `phase-acceptance` | the toolkit's agents of those names, run by the gate skills `code-review-gate`, `devops-review-gate`, `test-generation`, `codebase-assessment`, `phase-acceptance-check` |
+  | agents `doc-generator`, `refactorer`, `code-optimiser` | skills of the same names |
+  | agent `linter` | the Lint hook piece |
+  | skill `architecture-decision-record` | `doc-generator`'s ADR section and `docs/decisions/0000-template.md` |
+  | `.claudeignore` | deny rules in `.claude/settings.json`, each with a matching `.gitignore` entry (the `.gitignore` bullet below) and a deny glob in both profiles of `.codex/config.toml` (`toolkit` and `toolkit-review`). Its non-secret entries, such as `*.log`, have no equivalent: drop them or say so |
+  | a hand-written secrets check in `.githooks/pre-commit` | gitleaks through `.pre-commit-config.yaml` |
+
+  Removing the old files needs the user's OK, like any deletion.
 - **The target has the file:** never overwrite it. Merge, then show the user the diff before moving on:
   - **`AGENTS.md` / `CLAUDE.md`:** start from the toolkit's `AGENTS.md`. Put the target's own instructions under Rules as project rules (or Key Patterns, for how the code works), word for word. Fill in Architecture, Repository Structure, Testing and Deployment from the target's code, and remove fields and lines that don't apply (the PRD and build-guide links if Process didn't bring them). Git Workflow says `main` is protected only once repo protection is applied. Then `CLAUDE.md` is just `@AGENTS.md`.
   - **`.claude/settings.json`:** add the toolkit's `deny` rules and the lint hook to the target's; keep its `allow` list and other settings. Strict JSON.
-  - **`.pre-commit-config.yaml`:** keep the target's hooks and top-level keys, add the toolkit's top-level keys it doesn't set, and add the toolkit's `repos` entries. If both pin the same repo, keep one entry, at a version `dependency-check` accepts.
+  - **`.pre-commit-config.yaml`:** keep the target's hooks and top-level keys, add the toolkit's top-level keys it doesn't set, and add the toolkit's `repos` entries. If both pin the same repo, keep one entry, at a version `dependency-check` accepts. If both use the same hook with different `args`, keep the target's and ask.
   - **`.gitignore`:** append what's needed so every repo-level `Read` deny rule in `.claude/settings.json` is ignored (make a sample path per rule, as the toolkit's `test_gitignore.py` does, and check each with `git check-ignore --no-index`), and the `.env` templates aren't. Then check nothing of the target's is now hidden: `git ls-files -ci --exclude-standard` (tracked files) and `git ls-files --others --ignored --exclude-standard` (new files) must show nothing that belongs in the repo. If a pattern catches a real source or manifest folder (`src/secrets/`, a `credentials/` package), narrow it, and narrow the matching deny rule in `.claude/settings.json` to the same paths.
   - **`docs/process.md`:** if the target has its own process, ask whether to replace it, merge sections, or skip. If the target doesn't plan in phases, remove the phase-acceptance gate and the phase-boundary section.
 - **Adapt what was copied to the target.** Toolkit files mention things the target doesn't have:
@@ -61,19 +75,25 @@ Show the user this list, marked with what the target already has, and let them p
   - Drop mentions of `docs/toolkit.md`, `check_toolkit.py` and the toolkit's tests. Grep what you copied for `toolkit-checks`, `docs/toolkit.md`, `test_`, `docs/prd`, `build-guide` and `[Project Name]` to find them.
   - Leave copied skills and agents as they are, even where they mention toolkit files: they're shared with the toolkit, and a later update replaces them. List those mentions in the PR.
   - Files whose effect reaches the whole target: `CODEOWNERS` (`* @owner` makes that owner review every file: ask who), `.gitattributes` (`* text=auto`: check `git add --renormalize . && git status` shows no line-ending churn), and `SECURITY.md` (its private reporting link works only on public repos: on a private one, give a contact instead).
-- **Another hook manager** (husky, lefthook, or any `core.hooksPath`): skip the git hooks piece and say why. `setup-hooks.sh` stops when `core.hooksPath` is set. Otherwise it moves an existing `commit-msg` or `pre-push` hook aside to a `.bak` file, and `pre-commit install` renames an existing `pre-commit` hook to `pre-commit.legacy` and still runs it. The user can add the checks to their own manager.
+- **Another hook manager** (husky, lefthook, or a `core.hooksPath` other than `.githooks`): skip the git hooks piece and say why. `setup-hooks.sh` stops when `core.hooksPath` points elsewhere; a local `.githooks` setting is from an older copy of this toolkit, and it clears that one. Otherwise it moves an existing `commit-msg` or `pre-push` hook aside to a `.bak` file, and `pre-commit install` renames an existing `pre-commit` hook to `pre-commit.legacy` and still runs it. The user can add the checks to their own manager.
 - **Conventions the target doesn't follow yet:** say so before adding the hooks that enforce them. The hooks check new commits and pushes only; existing history isn't touched.
 
-Then check versions in what you copied with the `dependency-check` skill: the pinned hooks and actions may be older than its cool-down allows, or newer releases may exist.
+Then check versions with the `dependency-check` skill: pin what you copied. The target's own hooks and actions come under the adopted `AGENTS.md` rule too (exact SHA pins, the 7-day cool-down), but changing them changes its dependencies: list the proposed bumps and get the user's OK first. A hook that's also a project dependency (ruff in `uv.lock`) is bumped together with its lockfile. If `.github/dependabot.yml` was adopted, propose adding the target's own package ecosystems to it, with the cool-down set, on the same OK.
 
 ## 4. Check it works
 
 In the target, on the branch:
 - `.githooks/setup-hooks.sh` (if git hooks were adopted), then `git add` the changes and `pre-commit run --all-files` (it skips untracked files), which runs the target's own hooks too;
-- after committing: a commit with a bad message is rejected, and so are `git push --dry-run <remote> HEAD:<default branch>` and `git push --dry-run <remote> HEAD:refs/heads/Bad_Name` (before the first commit, a push has nothing to send and the hook never runs);
+- the commit and push hooks, without committing or pushing. Each must print `1` (rejected) after the hook's message. `<remote>` is the target's remote name, `<default branch>` its default branch; the local sha must be non-zero, or pre-push treats the line as a branch deletion and passes it:
+  ```sh
+  msg=$(mktemp); printf 'Bad message\n' > "$msg"; .githooks/commit-msg "$msg"; echo $?; rm -f "$msg"
+  z=$(printf '%040d' 0); sha=$(printf '1%.0s' $(seq 40))
+  printf 'refs/heads/x %s refs/heads/<default branch> %s\n' "$sha" "$z" | .githooks/pre-push <remote> "$(git remote get-url <remote>)"; echo $?
+  printf 'refs/heads/x %s refs/heads/Bad_Name %s\n' "$sha" "$z" | .githooks/pre-push <remote> "$(git remote get-url <remote>)"; echo $?
+  ```
 - the `.claude/skills/` links resolve (`find .claude/skills -xtype l` prints nothing), and each gate skill's `agent:` exists in `.claude/agents/`. If you can't start Claude Code, ask the user to check in a new session that the skills are listed;
 - the lint hook runs on an edited file without error. If the target configures no formatter or linter, say that the hook will do nothing until one is set up;
-- the target's own lint, tests and build still pass.
+- the target's own lint, tests and build still pass. For its own automation (step 1), check the commit messages and branch names it produces against the hooks, by reading it or in a throwaway clone: don't run it here, where it would make real commits.
 
 ## 5. Hand over
 
