@@ -52,12 +52,16 @@ Keep it scannable. Lead with the most important information.
 - Use past tense, be concise
 
 ### Architecture Decision Records (ADRs)
-- Title: short descriptive name
-- Status: Proposed / Accepted / Deprecated / Superseded
-- Context: what situation prompted this decision
-- Decision: what was decided and why
-- Consequences: what trade-offs were accepted
-- Alternatives considered: what else was evaluated and why it was rejected
+Use `docs/decisions/0000-template.md`, copied to `docs/decisions/NNNN-short-title.md`. An ADR answers "why did we do it this way?" for someone joining in six months.
+- **One decision per ADR.** Title it as the decision: "Use PostgreSQL for the metadata store", not "Database".
+- **Status:** Proposed / Accepted / Deprecated / Superseded by NNNN. Don't rewrite an accepted ADR when the decision changes: write a new one, and mark the old one superseded, linking both ways.
+- **Context:** the most important part, written as a short narrative: the problem, the constraints (time, skills, existing systems, compliance) and the assumptions made. It's what's forgotten first.
+- **Options considered:** each one that was seriously weighed, with its main pros and cons, including the chosen one.
+- **Decision:** what was chosen, and the deciding reasons.
+- **Consequences:** what gets easier, what gets harder, and what would make you revisit it.
+- **References:** the PRs, issues and docs behind the decision, or that apply it.
+- **Written after the fact:** date it when the decision was made. If the reasoning already lives in another doc, keep it there or in the ADR, not both, and link the other.
+- Skip ADRs for trivial, easily reversed choices. While options are still open, use `trade-off-analysis` or `tree-of-thought`; write the ADR once a decision is made.
 
 ## Writing principles
 
