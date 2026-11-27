@@ -39,6 +39,8 @@ You'll need `git`, `python3`, [pre-commit](https://pre-commit.com) (`brew instal
    ```
 6. Fill in `AGENTS.md` and start Claude Code.
 
+Already have a repo? Clone this toolkit and ask Claude (or Codex) to use the `adopt-toolkit` skill on it: it adds the pieces you choose and merges with what's there, through a PR.
+
 Optional but recommended:
 
 - install the [Codex GitHub app](https://chatgpt.com/codex) on the repo, so Codex reviews every PR;
