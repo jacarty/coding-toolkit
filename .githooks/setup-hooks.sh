@@ -4,7 +4,8 @@
 # repo or any of its worktrees; safe to re-run.
 #
 #   pre-commit  the pre-commit framework, running .pre-commit-config.yaml:
-#               gitleaks, private keys, large files, merge conflict markers
+#               gitleaks, private keys, large files, merge conflict markers,
+#               plus any hooks the project adds
 #   commit-msg  .githooks/commit-msg: Conventional Commits
 #   pre-push    .githooks/pre-push: branch names, no pushing straight to the
 #               default branch (checks every pushed ref)
@@ -26,6 +27,7 @@ MARKER="Installed by .githooks/setup-hooks.sh"
 if ! command -v pre-commit >/dev/null 2>&1; then
     echo "✗ pre-commit isn't installed. Install it, then re-run this script:" >&2
     echo "    uv tool install pre-commit      # or: pipx install pre-commit / brew install pre-commit" >&2
+    echo "  If it's a dev dependency of this project, run this script through it: uv run .githooks/setup-hooks.sh" >&2
     exit 1
 fi
 
@@ -79,7 +81,7 @@ if ! pre-commit install-hooks >/dev/null 2>&1; then
 fi
 
 echo "✓ Git hooks installed"
-echo "  pre-commit  gitleaks, private keys, large files, merge conflict markers"
+echo "  pre-commit  the hooks in .pre-commit-config.yaml (gitleaks, private keys, large files, merge conflicts, and any you've added)"
 echo "  commit-msg  Conventional Commits"
 echo "  pre-push    branch names; no pushing straight to the default branch"
 echo "Skip any hook with --no-verify."
