@@ -53,7 +53,8 @@ project/
 │   ├── build-guides/                # Implementation guides
 │   ├── process.md                   # Development process and agent cadence
 │   ├── tech-debt.md                 # Known gaps and drift
-│   └── decisions/                   # Architecture Decision Records
+│   ├── decisions/                   # Architecture Decision Records
+│   └── retrospectives/              # Retros (project-retrospective skill), created on first use
 ├── ...                              # Project-specific structure
 ```
 

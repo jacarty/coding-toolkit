@@ -35,7 +35,7 @@ The skill will trigger automatically based on what you ask within that project.
 
 ### Skills (`.agents/skills/`, `.claude/skills/`)
 
-Nine reusable thinking, planning, and strategy frameworks, seven development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
+Nine reusable thinking, planning, and strategy frameworks, eight development workflows, five review and test gates, and two cross-model review skills. Claude Code loads them automatically based on what you ask.
 
 **One copy, three tools.** The shared skills live in `.agents/skills/`, where Codex and Antigravity read them, and `.claude/skills/` links to each one for Claude Code. Only the two cross-model skills (`codex`, `antigravity`) live in `.claude/skills/` itself, since they exist to call the other tools. To add a shared skill, create it in `.agents/skills/<name>/` and link it: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`; `toolkit-checks` fails if the link is missing. On Windows, turn on Developer Mode (or use an admin shell) and clone with symlinks on: `git clone -c core.symlinks=true <repo>`. Otherwise the links check out as plain text files and Claude Code can't load the shared skills; `toolkit-checks` says so. To fix an existing clone, run `git config core.symlinks true`, then `git checkout -- .claude/skills`. For Claude Desktop or Claude.ai, upload individual `SKILL.md` files to Project Knowledge.
 
@@ -76,6 +76,7 @@ These three chain together: elicit requirements → research the approach → sp
 | `debugging` | Reproduce, narrow down, one hypothesis at a time, fix the root cause, then a regression test that fails without the fix | A bug, failing test or CI job, or unexpected behaviour, before proposing a fix |
 | `commit-and-pr` | Checks the branch name, staging, local checks and pre-PR gates, then writes the Conventional Commits message and the PR body from the template | The change is ready to commit, or you need the commit or PR text |
 | `adopt-toolkit` | Brings the toolkit into an existing repo that wasn't made from the template: takes stock, lets you pick the pieces, copies what's missing and merges what exists, never overwriting | Adding the toolkit to an existing project (run it with a toolkit checkout and the target repo) |
+| `project-retrospective` | A one-page retro: goal against outcome, what went well and badly (to root cause), surprises, and at most three follow-ups. You review the draft item by item; only what you confirm is saved to `docs/retrospectives/` | End of a phase or project, or when you ask; not per PR |
 
 The first three were subagents until they were converted to skills. They work from what the session already knows (the diff, the files just read), so running them in the main conversation saves a cold start that re-reads the same context. Reviewers that need independence run as gate skills in their own agent (below).
 
@@ -137,7 +138,7 @@ A codified development process that defines when each agent runs automatically d
 
 - **On every edit** — a lint hook formats and lints each edited file with the project's own tools, at no token cost
 - **Pre-PR gates** — code-reviewer, devops-reviewer, test-generator, and the doc-generator skill run conditionally based on what changed; antigravity runs on every PR. Every PR that changes behaviour is also run before it opens: use what was built, the way it will be used, and check it works, because tests and reviewers only check the code. Findings are folded into the branch before the PR opens
-- **Phase boundaries** — codebase-review and doc-generator refresh tech-debt tracking and AGENTS.md at the end of each build-guide phase
+- **Phase boundaries** — codebase-review and doc-generator refresh tech-debt tracking and AGENTS.md at the end of each build-guide phase, and a short retrospective goes in `docs/retrospectives/`
 - **Phase acceptance** — phase-acceptance validates PRD requirements when a phase closes out
 - **Trivial-change fast path** — small changes (≤ 50 lines changed, added plus removed; ≤ 2 files; no critical paths) skip all gates except antigravity (and run it, if the change alters behaviour)
 - **No direct commits to main** — docs-only changes go through a `docs/<slug>` PR too
@@ -444,7 +445,8 @@ docs/
 ├── build-guides/v1.0-build-guide.md   # Phases with verification checklists; fill in with the implementation-spec skill
 ├── decisions/0000-template.md         # ADR template: copy to NNNN-short-title.md
 ├── process.md                         # Development process and agent cadence
-└── tech-debt.md                       # Known gaps and drift
+├── tech-debt.md                       # Known gaps and drift
+└── retrospectives/                    # Retros from the project-retrospective skill (created on first use)
 ```
 
 The phase-acceptance agent checks a finished phase against the PRD and the build guide's verification checklist. AGENTS.md points at both.
